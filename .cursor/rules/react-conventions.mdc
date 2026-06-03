@@ -1,0 +1,18 @@
+---
+alwaysApply: true
+---
+# Rules and Conventions for the React project
+
+## Environment & Package Management
+- **Node.js**: Always use the latest Node.js version (currently `24.16.0`). Ensure your local environment is configured correctly (refer to the `.nvmrc` file).
+- **Always** use `pnpm` as your package manager (never use `npm` or `yarn`). Example: use `pnpm add <package>` to install new packages, and `pnpm run <script>` to run scripts.
+
+## State Management
+- Use **Zustand** for managing the global state of the application.
+- Create smaller, separated stores (hooks) instead of one giant store.
+- Avoid using Redux, MobX, or Context API for global state unless Context is strictly justified for a small piece of isolated logic (e.g., ThemeProvider).
+
+## React Best Practices
+- Use Functional Components and Hooks.
+- Remember to type Props in TypeScript (e.g., `interface ButtonProps { ... }`).
+- Component files should always use the `.tsx` extension.
