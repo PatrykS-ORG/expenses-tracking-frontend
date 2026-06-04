@@ -1,46 +1,119 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
-import { Wallet, LogOut, CheckCircle2, PencilLine, Plus, Trash2 } from 'lucide-react'
+import { Wallet, LogOut, CheckCircle2, Eye, Sparkles, Trash2, Mail } from 'lucide-react'
 import type { Template } from '../types/template.types'
 import {
   createTemplate,
   deleteTemplate as deleteTemplateRequest,
   getTemplateDashboard,
+  sendTestEmail as sendTestEmailRequest,
   setActiveTemplate as setActiveTemplateRequest,
   updateNextcloudFilePath,
-  updateTemplate,
 } from '../services/onboarding.service'
+import {
+  getPredefinedTemplate,
+  isPredefinedTemplateId,
+  predefinedTemplates,
+  type PredefinedTemplate,
+} from '../data/predefinedTemplates'
+import {
+  applyTemplatePreviewSamples,
+  getExampleTemplateValues,
+} from '../lib/templatePreview'
+
+type SelectedTemplate =
+  | { kind: 'predefined'; template: PredefinedTemplate }
+  | { kind: 'user'; template: Template }
 
 export function Dashboard() {
-  const navigate = useNavigate()
   const { user, session, signOut } = useAuthStore()
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true)
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false)
-  const [isSavingTemplate, setIsSavingTemplate] = useState(false)
+  const [isApplyingTemplate, setIsApplyingTemplate] = useState(false)
   const [isSavingPath, setIsSavingPath] = useState(false)
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [templates, setTemplates] = useState<Template[]>([])
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
-  const [templateName, setTemplateName] = useState('')
-  const [templateContent, setTemplateContent] = useState('')
   const [nextcloudFilePath, setNextcloudFilePath] = useState('')
+  const [testEmailRecipient, setTestEmailRecipient] = useState('')
+  const [showExamplePreview, setShowExamplePreview] = useState(true)
 
-  const pickTemplate = useCallback(
-    (allTemplates: Template[], preferredTemplateId?: string | null) => {
-      const preferredTemplate =
-        (preferredTemplateId && allTemplates.find((template) => template.id === preferredTemplateId)) ||
-        (activeTemplateId && allTemplates.find((template) => template.id === activeTemplateId)) ||
-        allTemplates[0] ||
-        null
+  const selectedTemplate = useMemo((): SelectedTemplate | null => {
+    if (!selectedTemplateId) {
+      return null
+    }
+    const predefined = getPredefinedTemplate(selectedTemplateId)
+    if (predefined) {
+      return { kind: 'predefined', template: predefined }
+    }
+    const userTemplate = templates.find((template) => template.id === selectedTemplateId)
+    if (userTemplate) {
+      return { kind: 'user', template: userTemplate }
+    }
+    return null
+  }, [selectedTemplateId, templates])
 
-      setSelectedTemplateId(preferredTemplate?.id ?? null)
-      setTemplateName(preferredTemplate?.name ?? '')
-      setTemplateContent(preferredTemplate?.content ?? '')
+  const previewHtml = useMemo(() => {
+    if (!selectedTemplate) {
+      return ''
+    }
+    const content = selectedTemplate.template.content.trim()
+    if (!content) {
+      return ''
+    }
+    if (!showExamplePreview) {
+      return selectedTemplate.template.content
+    }
+    return applyTemplatePreviewSamples(content, getExampleTemplateValues(user?.email))
+  }, [selectedTemplate, showExamplePreview, user?.email])
+
+  const isSelectedTemplateActive =
+    selectedTemplate?.kind === 'user' && selectedTemplate.template.id === activeTemplateId
+
+  const selectPredefinedTemplate = useCallback((template: PredefinedTemplate) => {
+    setSelectedTemplateId(template.id)
+    setError(null)
+    setSuccess(null)
+  }, [])
+
+  const selectUserTemplate = useCallback((template: Template) => {
+    setSelectedTemplateId(template.id)
+    setError(null)
+    setSuccess(null)
+  }, [])
+
+  const resolveInitialSelection = useCallback(
+    (
+      userTemplates: Template[],
+      preferredTemplateId?: string | null,
+      currentActiveId?: string | null,
+    ) => {
+      if (preferredTemplateId) {
+        if (isPredefinedTemplateId(preferredTemplateId) || userTemplates.some((t) => t.id === preferredTemplateId)) {
+          setSelectedTemplateId(preferredTemplateId)
+          return
+        }
+      }
+
+      if (currentActiveId && userTemplates.some((template) => template.id === currentActiveId)) {
+        setSelectedTemplateId(currentActiveId)
+        return
+      }
+
+      if (userTemplates[0]) {
+        setSelectedTemplateId(userTemplates[0].id)
+        return
+      }
+
+      if (predefinedTemplates[0]) {
+        setSelectedTemplateId(predefinedTemplates[0].id)
+      }
     },
-    [activeTemplateId],
+    [],
   )
 
   const loadDashboardData = useCallback(
@@ -54,15 +127,15 @@ export function Dashboard() {
       setIsLoadingDashboard(true)
       try {
         const dashboardData = await getTemplateDashboard(session.access_token)
-        if (dashboardData.templates.length === 0) {
-          navigate('/onboarding', { replace: true })
-          return
-        }
-
         setTemplates(dashboardData.templates)
         setActiveTemplateId(dashboardData.activeTemplateId)
         setNextcloudFilePath(dashboardData.nextcloudFilePath ?? '')
-        pickTemplate(dashboardData.templates, preferredTemplateId)
+        setTestEmailRecipient((current) => current || user?.email || '')
+        resolveInitialSelection(
+          dashboardData.templates,
+          preferredTemplateId,
+          dashboardData.activeTemplateId,
+        )
       } catch (fetchError) {
         const message =
           fetchError instanceof Error
@@ -74,83 +147,49 @@ export function Dashboard() {
         setIsCheckingOnboarding(false)
       }
     },
-    [navigate, pickTemplate, session?.access_token],
+    [resolveInitialSelection, session?.access_token, user?.email],
   )
 
   useEffect(() => {
     void loadDashboardData()
   }, [loadDashboardData])
 
-  const selectTemplate = (template: Template) => {
-    setSelectedTemplateId(template.id)
-    setTemplateName(template.name)
-    setTemplateContent(template.content)
-    setError(null)
-    setSuccess(null)
-  }
-
-  const handleStartCreatingTemplate = () => {
-    setSelectedTemplateId(null)
-    setTemplateName('Nowy szablon')
-    setTemplateContent('')
-    setError(null)
-    setSuccess(null)
-  }
-
-  const handleSaveTemplate = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!session?.access_token) {
+  const handleUseTemplate = async () => {
+    if (!session?.access_token || !selectedTemplate) {
       return
     }
 
     setError(null)
     setSuccess(null)
-    setIsSavingTemplate(true)
+    setIsApplyingTemplate(true)
+
     try {
-      if (selectedTemplateId) {
-        await updateTemplate(
-          session.access_token,
-          selectedTemplateId,
-          templateName,
-          templateContent,
-        )
-        await loadDashboardData(selectedTemplateId)
-        setSuccess('Szablon został zaktualizowany.')
-      } else {
+      if (selectedTemplate.kind === 'predefined') {
         const created = await createTemplate(
           session.access_token,
-          templateName,
-          templateContent,
+          selectedTemplate.template.name,
+          selectedTemplate.template.content,
         )
+        await setActiveTemplateRequest(session.access_token, created.id)
         await loadDashboardData(created.id)
-        setSuccess('Nowy szablon został zapisany.')
+        setSuccess('Szablon został dodany i ustawiony jako aktywny.')
+        return
       }
-    } catch (saveError) {
+
+      if (selectedTemplate.template.id === activeTemplateId) {
+        setSuccess('Ten szablon jest już aktywny.')
+        return
+      }
+
+      await setActiveTemplateRequest(session.access_token, selectedTemplate.template.id)
+      await loadDashboardData(selectedTemplate.template.id)
+      setSuccess('Ustawiono aktywny szablon.')
+    } catch (applyError) {
       const message =
-        saveError instanceof Error ? saveError.message : 'Nie udało się zapisać szablonu'
+        applyError instanceof Error ? applyError.message : 'Nie udało się zastosować szablonu'
       setError(message)
     } finally {
-      setIsSavingTemplate(false)
-    }
-  }
-
-  const handleSetActiveTemplate = async (templateId: string) => {
-    if (!session?.access_token) {
-      return
-    }
-
-    setError(null)
-    setSuccess(null)
-    try {
-      await setActiveTemplateRequest(session.access_token, templateId)
-      await loadDashboardData(templateId)
-      setSuccess('Ustawiono aktywny szablon.')
-    } catch (setActiveError) {
-      const message =
-        setActiveError instanceof Error
-          ? setActiveError.message
-          : 'Nie udało się ustawić aktywnego szablonu'
-      setError(message)
+      setIsApplyingTemplate(false)
     }
   }
 
@@ -198,6 +237,29 @@ export function Dashboard() {
       setError(message)
     } finally {
       setIsSavingPath(false)
+    }
+  }
+
+  const handleSendTestEmail = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!session?.access_token) {
+      return
+    }
+
+    setError(null)
+    setSuccess(null)
+    setIsSendingTestEmail(true)
+    try {
+      await sendTestEmailRequest(session.access_token, testEmailRecipient)
+      setSuccess(`Wysłano testową wiadomość na adres ${testEmailRecipient.trim()}.`)
+    } catch (sendError) {
+      const message =
+        sendError instanceof Error
+          ? sendError.message
+          : 'Nie udało się wysłać testowej wiadomości'
+      setError(message)
+    } finally {
+      setIsSendingTestEmail(false)
     }
   }
 
@@ -267,140 +329,230 @@ export function Dashboard() {
             </form>
           </section>
 
+          <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900">Testowy e-mail</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              System wysyła aktywny szablon z przykładowymi danymi wydatków na wskazany adres.
+            </p>
+            <form onSubmit={handleSendTestEmail} className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <input
+                type="email"
+                value={testEmailRecipient}
+                onChange={(event) => setTestEmailRecipient(event.target.value)}
+                placeholder="twoj-adres@email.com"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              />
+              <button
+                type="submit"
+                disabled={isSendingTestEmail || !activeTemplateId || !testEmailRecipient.trim()}
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Mail className="h-4 w-4" />
+                {isSendingTestEmail ? 'Wysyłanie...' : 'Wyślij test'}
+              </button>
+            </form>
+            {!activeTemplateId && (
+              <p className="mt-2 text-xs text-amber-700">
+                Ustaw aktywny szablon, aby wysłać testową wiadomość.
+              </p>
+            )}
+          </section>
+
           <div className="grid gap-6 lg:grid-cols-3">
             <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm lg:col-span-1">
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">Twoje szablony</h2>
-                <button
-                  type="button"
-                  onClick={handleStartCreatingTemplate}
-                  className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Nowy
-                </button>
+                <p className="mt-1 text-xs text-gray-500">
+                  Wybierz szablon z listy, zobacz podgląd i ustaw go jako aktywny.
+                </p>
               </div>
 
-              {isLoadingDashboard ? (
-                <p className="text-sm text-gray-500">Ładowanie szablonów...</p>
-              ) : (
+              <div className="mb-4">
+                <h3 className="mb-2 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-purple-700">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Predefiniowane
+                </h3>
                 <div className="space-y-2">
-                  {templates.map((template) => (
+                  {predefinedTemplates.map((template) => (
                     <div
                       key={template.id}
                       className={`rounded-md border p-3 ${
                         selectedTemplateId === template.id
-                          ? 'border-blue-400 bg-blue-50'
-                          : 'border-gray-200 bg-white'
+                          ? 'border-purple-400 bg-purple-50'
+                          : 'border-purple-100 bg-purple-50/30'
                       }`}
                     >
                       <button
                         type="button"
-                        onClick={() => selectTemplate(template)}
+                        onClick={() => selectPredefinedTemplate(template)}
                         className="w-full text-left"
                       >
                         <p className="text-sm font-medium text-gray-900">{template.name}</p>
-                        {activeTemplateId === template.id && (
-                          <p className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-700">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            Aktywny
-                          </p>
-                        )}
+                        <p className="mt-1 text-xs text-gray-600 line-clamp-2">{template.description}</p>
                       </button>
-                      <div className="mt-3 flex items-center gap-2">
-                        {activeTemplateId !== template.id && (
-                          <button
-                            type="button"
-                            onClick={() => handleSetActiveTemplate(template.id)}
-                            className="rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                          >
-                            Ustaw aktywny
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteTemplate(template)}
-                          className="rounded-md border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
-                        >
-                          <span className="inline-flex items-center gap-1">
-                            <Trash2 className="h-3.5 w-3.5" />
-                            Usuń
-                          </span>
-                        </button>
-                      </div>
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
+
+              <div>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Moje szablony
+                </h3>
+                {isLoadingDashboard ? (
+                  <p className="text-sm text-gray-500">Ładowanie szablonów...</p>
+                ) : templates.length === 0 ? (
+                  <p className="text-xs text-gray-500">
+                    Brak własnych szablonów. Wybierz gotowy szablon lub{' '}
+                    <Link to="/onboarding" className="text-blue-600 underline hover:text-blue-800">
+                      wygeneruj nowy
+                    </Link>
+                    .
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {templates.map((template) => (
+                      <div
+                        key={template.id}
+                        className={`rounded-md border p-3 ${
+                          selectedTemplateId === template.id
+                            ? 'border-blue-400 bg-blue-50'
+                            : 'border-gray-200 bg-white'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => selectUserTemplate(template)}
+                          className="w-full text-left"
+                        >
+                          <p className="text-sm font-medium text-gray-900">{template.name}</p>
+                          {activeTemplateId === template.id && (
+                            <p className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-700">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Aktywny
+                            </p>
+                          )}
+                        </button>
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTemplate(template)}
+                            className="rounded-md border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+                          >
+                            <span className="inline-flex items-center gap-1">
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Usuń
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 border-t border-gray-100 pt-4">
+                <Link
+                  to="/onboarding"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Wygeneruj nowy szablon
+                </Link>
+              </div>
             </section>
 
             <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm lg:col-span-2">
               <div className="mb-4 flex items-center gap-2">
-                <PencilLine className="h-4 w-4 text-blue-600" />
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {selectedTemplateId ? 'Edycja szablonu' : 'Nowy szablon'}
-                </h2>
+                <Eye className="h-4 w-4 text-blue-600" />
+                <h2 className="text-lg font-semibold text-gray-900">Podgląd szablonu</h2>
               </div>
 
-              <form onSubmit={handleSaveTemplate} className="space-y-4">
-                <div>
-                  <label htmlFor="template-name" className="mb-1 block text-sm font-medium text-gray-700">
-                    Nazwa
-                  </label>
-                  <input
-                    id="template-name"
-                    value={templateName}
-                    onChange={(event) => setTemplateName(event.target.value)}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                    placeholder="Np. Podsumowanie motywacyjne"
-                  />
+              {!selectedTemplate ? (
+                <div className="flex h-64 items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-500">
+                  Wybierz szablon z listy po lewej stronie.
                 </div>
-
-                <div>
-                  <label htmlFor="template-content" className="mb-1 block text-sm font-medium text-gray-700">
-                    Treść HTML
-                  </label>
-                  <textarea
-                    id="template-content"
-                    value={templateContent}
-                    onChange={(event) => setTemplateContent(event.target.value)}
-                    rows={14}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                    placeholder="<html><body>...</body></html>"
-                  />
-                </div>
-
-                <div>
-                  <p className="mb-2 block text-sm font-medium text-gray-700">Podgląd renderowanego HTML</p>
-                  <div className="overflow-hidden rounded-md border border-gray-300">
-                    {templateContent.trim() ? (
-                      <iframe
-                        title="Template HTML preview"
-                        srcDoc={templateContent}
-                        className="h-[420px] w-full bg-white"
-                        sandbox="allow-same-origin"
-                      />
-                    ) : (
-                      <div className="flex h-40 items-center justify-center bg-gray-50 text-sm text-gray-500">
-                        Brak treści HTML do podglądu.
-                      </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900">
+                      {selectedTemplate.template.name}
+                    </h3>
+                    {selectedTemplate.kind === 'predefined' && (
+                      <p className="mt-1 text-sm text-gray-600">
+                        {selectedTemplate.template.description}
+                      </p>
+                    )}
+                    {isSelectedTemplateActive && (
+                      <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Ten szablon jest aktywny — będzie używany przy comiesięcznym podsumowaniu
+                      </p>
                     )}
                   </div>
-                </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="submit"
-                    disabled={isSavingTemplate}
-                    className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isSavingTemplate ? 'Zapisywanie...' : 'Zapisz szablon'}
-                  </button>
-                  <Link to="/onboarding" className="text-sm text-blue-600 underline hover:text-blue-800">
-                    Wygeneruj nowy przez onboarding
-                  </Link>
+                  <div>
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-gray-700">Jak będzie wyglądał e-mail</p>
+                      <label className="inline-flex cursor-pointer items-center gap-2.5">
+                        <span className="text-sm text-gray-600">Przykładowe dane</span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={showExamplePreview}
+                          aria-label="Pokaż przykładowe dane w podglądzie szablonu"
+                          onClick={() => setShowExamplePreview((current) => !current)}
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                            showExamplePreview ? 'bg-blue-600' : 'bg-gray-300'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                              showExamplePreview ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </label>
+                    </div>
+                    {showExamplePreview && (
+                      <p className="mb-2 text-xs text-gray-500">
+                        Podgląd z przykładowymi danymi — tak mniej więcej zobaczysz wiadomość w skrzynce.
+                      </p>
+                    )}
+                    <div className="overflow-hidden rounded-md border border-gray-300">
+                      <iframe
+                        title="Template HTML preview"
+                        srcDoc={previewHtml}
+                        className="h-[min(520px,75vh)] w-full bg-white"
+                        sandbox="allow-same-origin"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => void handleUseTemplate()}
+                      disabled={isApplyingTemplate || isSelectedTemplateActive}
+                      className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isApplyingTemplate
+                        ? 'Zastosowywanie...'
+                        : selectedTemplate.kind === 'predefined'
+                          ? 'Użyj tego szablonu'
+                          : isSelectedTemplateActive
+                            ? 'Szablon aktywny'
+                            : 'Użyj tego szablonu'}
+                    </button>
+                    <Link
+                      to="/onboarding"
+                      className="text-sm text-blue-600 underline hover:text-blue-800"
+                    >
+                      Wygeneruj inny przez AI
+                    </Link>
+                  </div>
                 </div>
-              </form>
+              )}
             </section>
           </div>
         </div>

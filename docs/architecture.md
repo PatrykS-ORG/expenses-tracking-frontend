@@ -129,6 +129,23 @@ Example for templates (planned):
 
 Smoke-test endpoint on backend today: `GET /profile`.
 
+## Local data (predefined templates)
+
+Hardcoded HTML email templates ship with the frontend bundle so every user has ready-to-use options without going through AI generation.
+
+| File | Role |
+|------|------|
+| `src/data/predefinedTemplates.json` | Source of truth — array of `{ id, name, description, content }`. IDs use the `predefined-` prefix. |
+| `src/data/predefinedTemplates.ts` | Typed re-export plus helpers (`isPredefinedTemplateId`, `getPredefinedTemplate`). |
+
+Conventions:
+
+- Predefined templates use the same Mustache-style placeholders as AI-generated ones (`{{ userName }}`, `{{ currentMonth }}`, `{{ salaryAmount }}`, `{{ totalExpenses }}`, `{{ savingsAmount }}`, `{{ savingsMessage }}`, `{{ expensesList }}`) so the cron rendering pipeline treats them identically once saved.
+- Each predefined template ships a `<style>` block with breakpoints at **620px** (phone) and **621–768px** (tablet): stacked KPI columns, reduced padding and headline sizes, horizontal scroll for `{{ expensesList }}`, and stacked header/footer rows.
+- Predefined templates are **not** persisted until the user clicks **Użyj tego szablonu** — that calls `createTemplate` then `setActiveTemplate`.
+- The dashboard does **not** expose raw HTML editing. Users pick from the gallery, preview with optional sample data, and apply or regenerate via onboarding.
+- Users with zero AI-generated templates still see predefined templates on the dashboard (no forced redirect to onboarding).
+
 ## UI stack
 
 - **Tailwind** — layout and components in JSX class names.
