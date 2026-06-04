@@ -1,18 +1,56 @@
 ---
 alwaysApply: true
 ---
-# Rules and Conventions for the React project
+# Rules and conventions — expenses-tracking-frontend
 
-## Environment & Package Management
-- **Node.js**: Always use the latest Node.js version (currently `24.16.0`). Ensure your local environment is configured correctly (refer to the `.nvmrc` file).
-- **Always** use `pnpm` as your package manager (never use `npm` or `yarn`). Example: use `pnpm add <package>` to install new packages, and `pnpm run <script>` to run scripts.
+## Environment & package management
+- **Node.js**: Use version `24.16.0` (see `.nvmrc`).
+- **Always** use `pnpm` — never npm or yarn.
 
-## State Management
-- Use **Zustand** for managing the global state of the application.
-- Create smaller, separated stores (hooks) instead of one giant store.
-- Avoid using Redux, MobX, or Context API for global state unless Context is strictly justified for a small piece of isolated logic (e.g., ThemeProvider).
+## Folder structure
+| Folder | Use for |
+|--------|---------|
+| `src/components/` | Reusable presentational UI |
+| `src/pages/` | Route-level views (one page per route) |
+| `src/hooks/` | Custom hooks |
+| `src/store/` | Zustand stores (one file per domain) |
+| `src/lib/` | Singleton clients and pure utilities (`supabase.ts`) |
+| `src/services/` or `src/api/` | Backend HTTP calls — **never** call `fetch` from components |
+| `src/types/` | Shared TypeScript types |
 
-## React Best Practices
-- Use Functional Components and Hooks.
-- Remember to type Props in TypeScript (e.g., `interface ButtonProps { ... }`).
-- Component files should always use the `.tsx` extension.
+## State management
+- Use **Zustand** for global state; small, focused stores (`useAuthStore`, `useTemplateStore`, …).
+- Do not use Redux, MobX, or Context API for global app state.
+- Read `session` / `user` from `useAuthStore` in components — do not call `supabase.auth.getSession()` in UI code.
+
+## React components
+- Functional components and hooks only.
+- **Named exports** for components (`export function Auth()`). Default export only for `App.tsx` / `main.tsx` entry.
+- One component per file; filename **PascalCase** matching the component (`Auth.tsx`).
+- Type props with `interface` (e.g. `interface ButtonProps { ... }`).
+- Use `.tsx` for components.
+
+## Styling & icons
+- **Tailwind** utility classes inline — no CSS modules or styled-components.
+- Icons: **lucide-react** only.
+- Global styles only in `src/index.css` (`@tailwind` layers).
+
+## Authentication
+- Supabase client: `src/lib/supabase.ts` only.
+- Session lifecycle: `useAuthStore.initialize()` from `App.tsx` on mount.
+- Route guards: check `session` from the store; redirect with `<Navigate />`.
+- Sign-out: `useAuthStore.signOut()`.
+- Backend calls: attach `Authorization: Bearer ${session.access_token}` in the services layer.
+
+## API / data
+- All NestJS (or future GraphQL) calls go through `src/services/`.
+- Components consume data via stores or hooks that wrap services.
+- Handle loading and error state in the store or page, not buried inside leaf components.
+
+## Language & copy
+- User-facing UI text in **Polish** unless the task specifies otherwise.
+- Code comments and identifiers in **English**.
+
+## Documentation
+- See `AGENTS.md` for commands and overview.
+- Update `docs/architecture.md` when adding routes or major data flows.
