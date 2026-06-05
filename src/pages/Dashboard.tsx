@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
 import { Wallet, LogOut, CheckCircle2, Eye, Sparkles, Trash2, Mail } from 'lucide-react'
 import type { Template } from '../types/template.types'
@@ -9,7 +9,9 @@ import {
   getTemplateDashboard,
   sendTestEmail as sendTestEmailRequest,
   setActiveTemplate as setActiveTemplateRequest,
-  updateNextcloudFilePath,
+  updateDataSource,
+  uploadExpenseFile,
+  type DataSourceType,
 } from '../services/onboarding.service'
 import {
   getPredefinedTemplate,
@@ -27,18 +29,23 @@ type SelectedTemplate =
   | { kind: 'user'; template: Template }
 
 export function Dashboard() {
+  const location = useLocation()
   const { user, session, signOut } = useAuthStore()
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true)
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false)
   const [isApplyingTemplate, setIsApplyingTemplate] = useState(false)
   const [isSavingPath, setIsSavingPath] = useState(false)
+  const [isUploadingExpenseFile, setIsUploadingExpenseFile] = useState(false)
   const [isSendingTestEmail, setIsSendingTestEmail] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [templates, setTemplates] = useState<Template[]>([])
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const [dataSourceType, setDataSourceType] = useState<DataSourceType>('FILE_UPLOAD')
   const [nextcloudFilePath, setNextcloudFilePath] = useState('')
+  const [uploadedFilePath, setUploadedFilePath] = useState<string | null>(null)
+  const [selectedExpenseFile, setSelectedExpenseFile] = useState<File | null>(null)
   const [testEmailRecipient, setTestEmailRecipient] = useState('')
   const [showExamplePreview, setShowExamplePreview] = useState(true)
 
@@ -129,7 +136,9 @@ export function Dashboard() {
         const dashboardData = await getTemplateDashboard(session.access_token)
         setTemplates(dashboardData.templates)
         setActiveTemplateId(dashboardData.activeTemplateId)
+        setDataSourceType(dashboardData.dataSourceType)
         setNextcloudFilePath(dashboardData.nextcloudFilePath ?? '')
+        setUploadedFilePath(dashboardData.uploadedFilePath ?? null)
         setTestEmailRecipient((current) => current || user?.email || '')
         resolveInitialSelection(
           dashboardData.templates,
@@ -153,6 +162,14 @@ export function Dashboard() {
   useEffect(() => {
     void loadDashboardData()
   }, [loadDashboardData])
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    if (params.get('setup') === 'upload') {
+      setDataSourceType('FILE_UPLOAD')
+      setSuccess('Gotowe! Teraz prześlij plik z wydatkami, aby dokończyć konfigurację.')
+    }
+  }, [location.search])
 
   const handleUseTemplate = async () => {
     if (!session?.access_token || !selectedTemplate) {
@@ -226,17 +243,63 @@ export function Dashboard() {
     setSuccess(null)
     setIsSavingPath(true)
     try {
-      await updateNextcloudFilePath(session.access_token, nextcloudFilePath)
+      await updateDataSource(session.access_token, 'NEXTCLOUD', nextcloudFilePath)
       await loadDashboardData(selectedTemplateId)
-      setSuccess('Ścieżka Nextcloud została zapisana.')
+      setSuccess('Ustawiono Nextcloud jako źródło danych.')
     } catch (savePathError) {
       const message =
         savePathError instanceof Error
           ? savePathError.message
-          : 'Nie udało się zapisać ścieżki Nextcloud'
+          : 'Nie udało się zapisać ustawień źródła danych'
       setError(message)
     } finally {
       setIsSavingPath(false)
+    }
+  }
+
+  const handleSelectDataSource = async (type: DataSourceType) => {
+    if (!session?.access_token) {
+      return
+    }
+
+    setError(null)
+    setSuccess(null)
+    setDataSourceType(type)
+
+    if (type === 'FILE_UPLOAD' && uploadedFilePath) {
+      try {
+        await updateDataSource(session.access_token, 'FILE_UPLOAD')
+        await loadDashboardData(selectedTemplateId)
+        setSuccess('Przełączono na przesłany plik jako źródło danych.')
+      } catch (switchError) {
+        const message =
+          switchError instanceof Error ? switchError.message : 'Nie udało się zmienić źródła danych'
+        setError(message)
+      }
+    }
+  }
+
+  const handleUploadExpenseFile = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!session?.access_token || !selectedExpenseFile) {
+      return
+    }
+
+    setError(null)
+    setSuccess(null)
+    setIsUploadingExpenseFile(true)
+    try {
+      await uploadExpenseFile(session.access_token, selectedExpenseFile)
+      setSelectedExpenseFile(null)
+      await loadDashboardData(selectedTemplateId)
+      setDataSourceType('FILE_UPLOAD')
+      setSuccess('Plik został przesłany i ustawiony jako źródło danych.')
+    } catch (uploadError) {
+      const message =
+        uploadError instanceof Error ? uploadError.message : 'Nie udało się przesłać pliku'
+      setError(message)
+    } finally {
+      setIsUploadingExpenseFile(false)
     }
   }
 
@@ -308,25 +371,79 @@ export function Dashboard() {
           )}
 
           <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">Plik z wydatkami (Nextcloud)</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Źródło danych wydatków</h2>
             <p className="mt-1 text-sm text-gray-600">
-              Podaj ścieżkę do pliku tekstowego, który będzie przetwarzany podczas procesu miesięcznego.
+              Wybierz najprostszy wariant: prześlij plik bezpośrednio lub podłącz Nextcloud.
             </p>
-            <form onSubmit={handleSaveNextcloudPath} className="mt-4 flex flex-col gap-3 sm:flex-row">
-              <input
-                value={nextcloudFilePath}
-                onChange={(event) => setNextcloudFilePath(event.target.value)}
-                placeholder="/shared/wydatki/2026-06.txt"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-              />
+            <div className="mt-4 inline-flex rounded-md border border-gray-200 bg-gray-50 p-1">
               <button
-                type="submit"
-                disabled={isSavingPath}
-                className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                onClick={() => void handleSelectDataSource('FILE_UPLOAD')}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                  dataSourceType === 'FILE_UPLOAD'
+                    ? 'bg-white text-blue-700 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
               >
-                {isSavingPath ? 'Zapisywanie...' : 'Zapisz ścieżkę'}
+                Prześlij plik
               </button>
-            </form>
+              <button
+                type="button"
+                onClick={() => void handleSelectDataSource('NEXTCLOUD')}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                  dataSourceType === 'NEXTCLOUD'
+                    ? 'bg-white text-blue-700 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Nextcloud
+              </button>
+            </div>
+
+            {dataSourceType === 'FILE_UPLOAD' ? (
+              <div className="mt-4 space-y-3">
+                <form onSubmit={handleUploadExpenseFile} className="flex flex-col gap-3 sm:flex-row">
+                  <input
+                    type="file"
+                    accept=".txt,.csv,text/plain,text/csv"
+                    onChange={(event) => setSelectedExpenseFile(event.target.files?.[0] ?? null)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isUploadingExpenseFile || !selectedExpenseFile}
+                    className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isUploadingExpenseFile ? 'Przesyłanie...' : 'Prześlij plik'}
+                  </button>
+                </form>
+                {uploadedFilePath ? (
+                  <p className="text-xs text-gray-600">
+                    Aktualny plik: <span className="font-medium">{uploadedFilePath}</span>
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-700">
+                    Nie masz jeszcze przesłanego pliku. Dodaj plik .txt lub .csv.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <form onSubmit={handleSaveNextcloudPath} className="mt-4 flex flex-col gap-3 sm:flex-row">
+                <input
+                  value={nextcloudFilePath}
+                  onChange={(event) => setNextcloudFilePath(event.target.value)}
+                  placeholder="/shared/wydatki/2026-06.txt"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                />
+                <button
+                  type="submit"
+                  disabled={isSavingPath}
+                  className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSavingPath ? 'Zapisywanie...' : 'Zapisz Nextcloud'}
+                </button>
+              </form>
+            )}
           </section>
 
           <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
@@ -348,7 +465,7 @@ export function Dashboard() {
                 className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Mail className="h-4 w-4" />
-                {isSendingTestEmail ? 'Wysyłanie...' : 'Wyślij test'}
+                {isSendingTestEmail ? 'Wysyłanie...' : 'Wyślij'}
               </button>
             </form>
             {!activeTemplateId && (

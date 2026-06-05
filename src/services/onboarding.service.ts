@@ -12,23 +12,32 @@ interface GraphQLResponse<TData> {
 
 interface TemplateSettings {
   active_template_id: string | null
+  data_source_type: DataSourceType
   nextcloud_file_path: string | null
+  uploaded_file_path: string | null
 }
+
+export type DataSourceType = 'FILE_UPLOAD' | 'NEXTCLOUD'
 
 export interface DashboardData {
   templates: Template[]
   activeTemplateId: string | null
+  dataSourceType: DataSourceType
   nextcloudFilePath: string | null
+  uploadedFilePath: string | null
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/graphql'
+const GRAPHQL_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/graphql'
+const API_BASE_URL = GRAPHQL_URL.endsWith('/graphql')
+  ? GRAPHQL_URL.slice(0, -'/graphql'.length)
+  : GRAPHQL_URL
 
 async function graphqlRequest<TData>(
   accessToken: string,
   query: string,
   variables?: Record<string, unknown>,
 ): Promise<TData> {
-  const res = await fetch(API_URL, {
+  const res = await fetch(GRAPHQL_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -126,7 +135,9 @@ export async function getTemplateDashboard(accessToken: string): Promise<Dashboa
         }
         myTemplateSettings {
           active_template_id
+          data_source_type
           nextcloud_file_path
+          uploaded_file_path
         }
       }
     `,
@@ -135,7 +146,9 @@ export async function getTemplateDashboard(accessToken: string): Promise<Dashboa
   return {
     templates: data.myTemplates ?? [],
     activeTemplateId: data.myTemplateSettings?.active_template_id ?? null,
+    dataSourceType: data.myTemplateSettings?.data_source_type ?? 'FILE_UPLOAD',
     nextcloudFilePath: data.myTemplateSettings?.nextcloud_file_path ?? null,
+    uploadedFilePath: data.myTemplateSettings?.uploaded_file_path ?? null,
   }
 }
 
@@ -243,22 +256,49 @@ export async function updateNextcloudFilePath(
   accessToken: string,
   nextcloudFilePath: string,
 ): Promise<void> {
-  const data = await graphqlRequest<{ updateNextcloudFilePath?: boolean }>(
+  await updateDataSource(accessToken, 'NEXTCLOUD', nextcloudFilePath)
+}
+
+export async function updateDataSource(
+  accessToken: string,
+  dataSourceType: DataSourceType,
+  nextcloudFilePath?: string,
+): Promise<void> {
+  const data = await graphqlRequest<{ updateDataSource?: boolean }>(
     accessToken,
     `
-      mutation UpdateNextcloudFilePath($input: UpdateNextcloudFilePathInput!) {
-        updateNextcloudFilePath(input: $input)
+      mutation UpdateDataSource($input: UpdateDataSourceInput!) {
+        updateDataSource(input: $input)
       }
     `,
     {
       input: {
+        dataSourceType,
         nextcloudFilePath,
       },
     },
   )
 
-  if (!data.updateNextcloudFilePath) {
-    throw new Error('Nie udało się zapisać ścieżki Nextcloud')
+  if (!data.updateDataSource) {
+    throw new Error('Nie udało się zaktualizować źródła danych')
+  }
+}
+
+export async function uploadExpenseFile(accessToken: string, file: File): Promise<void> {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const response = await fetch(`${API_BASE_URL}/api/data-sources/upload`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Nie udało się przesłać pliku')
   }
 }
 
