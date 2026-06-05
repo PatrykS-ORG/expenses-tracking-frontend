@@ -2,7 +2,12 @@
 
 ## System context
 
-The SPA handles authentication and will drive onboarding, template CRUD, and settings. Business logic and persistence live in the NestJS backend; Supabase provides Auth and (via the backend) PostgreSQL.
+ExpenseAI frontend is a React SPA (Vite) that:
+
+- authenticates users with Supabase Auth,
+- calls backend GraphQL for templates/settings,
+- calls backend REST for file upload,
+- guides users through onboarding → upload → dashboard workflow.
 
 ```mermaid
 flowchart TB
@@ -14,157 +19,106 @@ flowchart TB
   end
   subgraph remote [Remote]
     SupaAuth[Supabase_Auth]
-    NestAPI[NestJS_API]
+    Backend[NestJS_API]
   end
   Pages --> Store
   Pages --> Services
   Store --> SupaLib
   SupaLib --> SupaAuth
-  Services -->|"Bearer access_token"| NestAPI
+  Services -->|"Bearer access_token"| Backend
 ```
 
-## App shell and routing
+## Routes and guards
 
-Entry: `main.tsx` → `App.tsx`.
-
-`App.tsx` responsibilities:
-
-1. Call `useAuthStore().initialize()` on mount.
-2. Show a full-screen spinner while `isLoading` is true.
-3. Render `BrowserRouter` with auth-guarded routes.
+Defined in `src/App.tsx`:
 
 | Path | Condition | Render |
-|------|-----------|--------|
-| `/` | `session` present | `Dashboard` component |
-| `/` | no session | `<Navigate to="/auth" />` |
-| `/auth` | no session | `Auth` component |
-| `/auth` | session present | `<Navigate to="/" />` |
-| `/onboarding` | session present | `Onboarding` component |
-| `/onboarding` | no session | `<Navigate to="/auth" />` |
+|---|---|---|
+| `/` | session exists | `Dashboard` |
+| `/` | no session | redirect to `/auth` |
+| `/auth` | no session | `Auth` |
+| `/auth` | session exists | redirect to `/` |
+| `/onboarding` | session exists | `Onboarding` |
+| `/onboarding` | no session | redirect to `/auth` |
 
-```mermaid
-flowchart TD
-  Start[App_mount] --> Init[initialize]
-  Init --> Loading{isLoading?}
-  Loading -->|yes| Spinner[Spinner]
-  Loading -->|no| Router[BrowserRouter]
-  Router --> Route{path}
-  Route -->|/| HasSession{session?}
-  HasSession -->|yes| Dashboard
-  HasSession -->|no| ToAuth[Navigate to /auth]
-  Route -->|/auth| NoSession{session?}
-  NoSession -->|no| AuthPage[Auth]
-  NoSession -->|yes| ToHome[Navigate to /]
-  Route -->|/onboarding| OnbSession{session?}
-  OnbSession -->|yes| OnboardingPage[Onboarding]
-  OnbSession -->|no| ToAuth
-```
-
-**Planned routes** (from [PLAN.md](../PLAN.md)):
-
-- `/templates` — CRUD, active template, Nextcloud path
-- `/settings` — profile and test email
+Onboarding success navigates to `/?setup=upload` to highlight the upload step.
 
 ## State management
 
 | Store | File | Responsibility |
-|-------|------|----------------|
-| `useAuthStore` | `src/store/useAuthStore.ts` | `user`, `session`, `isLoading`, `initialize`, `signOut` |
-| `useOnboardingStore` | `src/store/useOnboardingStore.ts` | Onboarding steps, user preferences, API call for generation |
+|---|---|---|
+| `useAuthStore` | `src/store/useAuthStore.ts` | session, user, bootstrapping, sign-out |
+| `useOnboardingStore` | `src/store/useOnboardingStore.ts` | questionnaire state + template generation |
 
-**Planned stores:** templates list, UI notifications.
+Page-level local state is used in `Dashboard` for:
 
-Pattern:
+- selected template,
+- selected data source (`FILE_UPLOAD` / `NEXTCLOUD`),
+- upload form status,
+- test-email form status.
 
-- Stores hold client state and async actions that call services.
-- Components select minimal state from stores (`useAuthStore(s => s.session)` when optimizing).
+## Backend communication pattern
 
-## Authentication flow
+`src/services/onboarding.service.ts` is the API gateway for dashboard/onboarding flows.
 
-```mermaid
-sequenceDiagram
-  participant App as App.tsx
-  participant Store as useAuthStore
-  participant SB as supabase.ts
-  participant SA as Supabase_Auth
-  App->>Store: initialize
-  Store->>SB: getSession
-  SB->>SA: getSession
-  SA-->>Store: session user
-  Store->>SB: onAuthStateChange
-  Note over Store,SA: login signup signOut update session
-  App->>App: route guard from session
-```
+### GraphQL operations
 
-**Login/signup today:** `Auth.tsx` calls `supabase.auth.signInWithPassword` / `signUp` directly. Session updates propagate via `onAuthStateChange` into the store.
+- `generateTemplate`
+- `myTemplates`
+- `myTemplateSettings`
+- `createTemplate`
+- `updateTemplate`
+- `deleteTemplate`
+- `setActiveTemplate`
+- `updateDataSource`
+- `sendTestEmail`
 
-**Target:** move auth mutations into `src/services/auth.service.ts`; components only call store actions.
+### REST operation
 
-## Data flow (target)
+- `POST /api/data-sources/upload` (multipart form-data with file field `file`)
+- `GET /api/data-sources/upload/current` (fetch current uploaded file content for preview/edit)
+- `PUT /api/data-sources/upload/current` (save edited content over existing uploaded file via multipart `file`)
 
-```mermaid
-flowchart LR
-  Page[Page_component]
-  Hook[useX_hook_or_store]
-  Service[api_service]
-  API[NestJS]
-  Page --> Hook
-  Hook --> Service
-  Service --> API
-```
+### URL strategy
 
-Example for templates (planned):
+- `GRAPHQL_URL = VITE_API_URL || http://localhost:3000/graphql`
+- `API_BASE_URL` is derived from `GRAPHQL_URL` by stripping trailing `/graphql`
 
-1. `TemplatesPage` mounts → `useTemplateStore.fetchAll()`.
-2. Store calls `templatesService.list(session.access_token)`.
-3. Service `fetch`es NestJS, returns JSON.
-4. Store updates; page re-renders.
+This lets one env var drive both GraphQL and REST calls.
 
-## Backend communication
+## Dashboard flow
 
-- **Auth:** Supabase JS client only (no custom login API).
-- **Data:** REST to NestJS (GraphQL mentioned in [PLAN.md](../PLAN.md) — follow backend implementation).
-- **Header:** `Authorization: Bearer <access_token>` from `session.access_token`.
-- **Base URL:** `import.meta.env.VITE_API_URL` (add to `.env` when backend client is implemented).
+`Dashboard` combines:
 
-Smoke-test endpoint on backend today: `GET /profile`.
+- template gallery (predefined + user templates),
+- active template switch,
+- source selector:
+  - Upload file (`.txt`, `.csv`)
+  - Preview/edit current uploaded file content and save overwrite
+  - Nextcloud path,
+- test-email trigger.
 
-## Local data (predefined templates)
+`myTemplateSettings` response is mapped to:
 
-Hardcoded HTML email templates ship with the frontend bundle so every user has ready-to-use options without going through AI generation.
+- `dataSourceType`,
+- `nextcloudFilePath`,
+- `uploadedFilePath`.
 
-| File | Role |
-|------|------|
-| `src/data/predefinedTemplates.json` | Source of truth — array of `{ id, name, description, content }`. IDs use the `predefined-` prefix. |
-| `src/data/predefinedTemplates.ts` | Typed re-export plus helpers (`isPredefinedTemplateId`, `getPredefinedTemplate`). |
+## Onboarding flow
 
-Conventions:
+1. User fills questionnaire.
+2. Frontend calls `generateTemplate`.
+3. On success, navigate to `/?setup=upload`.
+4. Dashboard prompts user to upload expense file immediately.
 
-- Predefined templates use the same Mustache-style placeholders as AI-generated ones (`{{ userName }}`, `{{ currentMonth }}`, `{{ salaryAmount }}`, `{{ totalExpenses }}`, `{{ savingsAmount }}`, `{{ savingsMessage }}`, `{{ expensesList }}`) so the cron rendering pipeline treats them identically once saved.
-- Each predefined template ships a `<style>` block with breakpoints at **620px** (phone) and **621–768px** (tablet): stacked KPI columns, reduced padding and headline sizes, horizontal scroll for `{{ expensesList }}`, and stacked header/footer rows.
-- Predefined templates are **not** persisted until the user clicks **Użyj tego szablonu** — that calls `createTemplate` then `setActiveTemplate`.
-- The dashboard does **not** expose raw HTML editing. Users pick from the gallery, preview with optional sample data, and apply or regenerate via onboarding.
-- Users with zero AI-generated templates still see predefined templates on the dashboard (no forced redirect to onboarding).
+## Local template data
+
+Predefined templates are bundled in `src/data/predefinedTemplates.*` and can be converted into persisted user templates when selected.
 
 ## UI stack
 
-- **Tailwind** — layout and components in JSX class names.
-- **lucide-react** — icons (`Wallet`, `LogOut`, etc.).
-- **No component library** — build primitives in `components/` as needed.
+- Tailwind classes inline
+- Lucide icons
+- No additional component library
 
-## Planned page map
-
-```mermaid
-flowchart LR
-  Auth["/auth"]
-  Home["/"]
-  Onboard["/onboarding"]
-  Templates["/templates planned"]
-  Auth --> Home
-  Home --> Onboard
-  Home --> Templates
-```
-
-First-time users: detect missing profile/onboarding server-side or via API, redirect to `/onboarding`.
-
-See [conventions.md](./conventions.md) for file patterns and checklists.
+See also [conventions.md](./conventions.md).

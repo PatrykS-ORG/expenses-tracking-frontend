@@ -1,155 +1,69 @@
 # Frontend coding conventions
 
-## File and folder naming
+## File naming
 
 | Kind | Convention | Example |
-|------|------------|---------|
-| Component file | PascalCase `.tsx` | `Auth.tsx`, `TemplateCard.tsx` |
-| Store file | camelCase with `use` prefix | `useAuthStore.ts` |
-| Hook file | camelCase `use*.ts` | `useTemplates.ts` |
-| Service file | kebab-case or camelCase | `templates.service.ts` |
-| Types | `*.types.ts` or co-located interface | `template.types.ts` |
+|---|---|---|
+| Component file | PascalCase `.tsx` | `Dashboard.tsx` |
+| Store file | camelCase `use*.ts` | `useAuthStore.ts` |
+| Service file | `<feature>.service.ts` | `onboarding.service.ts` |
+| Types file | `*.types.ts` | `template.types.ts` |
 
-## Component file structure
+## Component conventions
 
-```tsx
-// 1. Imports (react, router, store, components, types)
-import { useState } from 'react'
-import type { SomeProps } from '../types/some'
+- Functional components only.
+- Named exports for pages/components.
+- Keep route-level orchestration in `src/pages/`.
+- Use local state for page-scoped UI behavior; use stores for session/domain state.
 
-// 2. Types
-interface CardProps {
-  title: string
-}
+## Service layer conventions
 
-// 3. Component (named export)
-export function Card({ title }: CardProps) {
-  return <div className="...">{title}</div>
-}
-```
+- Never call backend directly from components.
+- Centralize backend calls in `src/services/`.
+- Attach `Authorization: Bearer ${accessToken}` for protected calls.
+- Keep one env entry point (`VITE_API_URL`) and derive REST base URL when needed.
 
-- Prefer **named exports** for components.
-- Default export only for `App.tsx` (and similar entry wrappers).
+### Mixed API style
 
-## Imports
+`onboarding.service.ts` intentionally mixes:
 
-- Use `import type` for type-only imports.
-- Relative paths within `src/` (`../store/useAuthStore`).
-- No path aliases configured in Vite yet.
+- GraphQL requests for template/settings operations.
+- REST requests for expense file upload + file preview/edit save.
 
-## Styling
+This is expected and should stay in the service layer.
 
-- Tailwind utilities on elements; avoid inline `style={{}}` except dynamic values.
-- Responsive prefixes: `sm:`, `md:`, `lg:` as needed.
-- Reuse layout patterns from `Auth.tsx` and the provisional dashboard nav.
+## Form handling
 
-## Icons
+- Local `useState` for form inputs and button loading flags.
+- `try/catch` in submit handlers with user-visible Polish error messages.
+- Disable submit buttons during pending requests.
 
-Import from `lucide-react` only:
+## Error/loading patterns
 
-```tsx
-import { Wallet, LogOut } from 'lucide-react'
-```
+- Global app bootstrap loading: `App.tsx` spinner.
+- Page-scoped loading and errors live in page state unless shared broadly.
+- Keep messages concise and user-facing in Polish.
 
-## Auth conventions
+## Routing
 
-| Action | Where |
-|--------|--------|
-| Read `session` / `user` | `useAuthStore` in components |
-| Initialize session | `App.tsx` → `initialize()` once |
-| Sign out | `useAuthStore.signOut()` |
-| Sign in / sign up | `Auth.tsx` today → move to `services/auth.service.ts` |
+- Guard all authenticated pages with session checks in `App.tsx`.
+- For post-onboarding setup states, query params are allowed (`/?setup=upload`).
 
-Never duplicate `onAuthStateChange` listeners outside the auth store.
+## Styling and icons
 
-## API services (when adding)
+- Tailwind utility classes inline in JSX.
+- Use only `lucide-react` for icons.
 
-Create `src/services/api-client.ts` (optional base) and feature services:
+## How to add a page
 
-```typescript
-// services/templates.service.ts — illustrative
-export async function listTemplates(accessToken: string) {
-  const res = await fetch(`${import.meta.env.VITE_API_URL}/templates`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
-  if (!res.ok) throw new Error('Failed to load templates')
-  return res.json()
-}
-```
+1. Create `src/pages/NewPage.tsx`.
+2. Add route in `App.tsx` with session guard if needed.
+3. If backend calls are needed, add functions in `src/services/`.
+4. Update [architecture.md](./architecture.md) for route/data-flow changes.
 
-Stores call services; pages call stores or thin hooks.
+## How to add a service function
 
-## Error handling in UI
-
-Until a toast library is chosen:
-
-- Form errors: local `useState` string (see `Auth.tsx`).
-- Page-level errors: store field `error: string | null` or dedicated error boundary later.
-- Show user messages in **Polish**.
-
-## Loading states
-
-- Global auth boot: full-screen spinner in `App.tsx` while `isLoading`.
-- Page/feature: button `disabled` + spinner, or skeleton in the content area.
-- Store flags: `isLoading`, `isSubmitting` per async action.
-
-## Accessibility
-
-- Use semantic HTML (`button`, `label`, `nav`, `main`).
-- Associate `<label>` with inputs; meaningful `type` on inputs.
-- Icon-only buttons: add `aria-label` (Polish or English per product choice).
-- Focus states: rely on Tailwind `focus:` utilities.
-
-## Language
-
-- **UI strings:** Polish (e.g. "Zaloguj się", "Wyloguj").
-- **Code:** English identifiers and comments.
-
-## How to add a new page/route
-
-1. Create `src/pages/MyPage.tsx` with a named export.
-2. Add `<Route path="/my-page" element={...} />` in `App.tsx`.
-3. Apply auth guard: wrap with session check or a small `ProtectedRoute` component.
-4. Add nav link in layout if needed.
-5. Document the route in [architecture.md](./architecture.md).
-
-## How to add a new Zustand store
-
-1. Create `src/store/useXStore.ts`.
-2. Define a typed interface for state + actions.
-3. Use `create<State>()((set, get) => ({ ... }))`.
-4. Call services inside actions; avoid Supabase/fetch in components.
-5. Export selectors sparingly for performance if the store grows.
-
-## How to add a new API function
-
-1. Add function under `src/services/<feature>.service.ts`.
-2. Accept `accessToken` or read from a passed-in session object — do not import the store inside services.
-3. Throw or return typed errors for the store to map to UI messages.
-4. Add types in `src/types/` if shared across pages.
-
-## Forms
-
-Current pattern in `Auth.tsx`:
-
-- Local `useState` for fields and errors.
-- `async` submit handler with try/catch.
-- Display `error` above the form.
-
-For larger forms (onboarding), consider splitting into steps and validating per step before calling the backend.
-
-## Linting & TypeScript
-
-- ESLint flat config: `eslint.config.js`
-- Strict TS: `strict`, `noUnusedLocals`, `verbatimModuleSyntax`
-- Run `pnpm run lint` before finishing changes.
-
-## Package manager
-
-Always **`pnpm`**. See [package.json](../package.json) for scripts.
-
-## Scaffold cleanup (known debt)
-
-- Rename `package.json` `"name"` from `temp-front` when convenient.
-- Remove or use `src/App.css`.
-- Update `index.html` title from "Vite + React + TS" to ExpenseAI.
+1. Add typed request/response shape.
+2. Use shared `graphqlRequest` helper or `fetch` for REST.
+3. Throw meaningful `Error` for UI consumption.
+4. Avoid importing stores inside services.
