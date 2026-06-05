@@ -261,3 +261,23 @@ export async function updateNextcloudFilePath(
     throw new Error('Nie udało się zapisać ścieżki Nextcloud')
   }
 }
+
+export async function sendTestEmail(accessToken: string, recipientEmail: string): Promise<void> {
+  const data = await graphqlRequest<{ sendTestEmail?: boolean }>(
+    accessToken,
+    `
+      mutation SendTestEmail($input: SendTestEmailInput!) {
+        sendTestEmail(input: $input)
+      }
+    `,
+    {
+      input: {
+        recipientEmail,
+      },
+    },
+  )
+
+  if (!data.sendTestEmail) {
+    throw new Error('Nie udało się wysłać testowego e-maila')
+  }
+}

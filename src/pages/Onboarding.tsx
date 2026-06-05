@@ -1,6 +1,6 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useOnboardingStore } from '../store/useOnboardingStore'
-import { Sparkles } from 'lucide-react'
+import { ArrowLeft, Sparkles } from 'lucide-react'
 import type { TonePreference, DetailLevelPreference, FocusPreference, VisualStylePreference } from '../types/onboarding.types'
 
 export function Onboarding() {
@@ -21,6 +21,14 @@ export function Onboarding() {
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
+        <Link
+          to="/"
+          className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Wróć do panelu
+        </Link>
+
         <div className="text-center mb-12">
           <div className="inline-flex items-center justify-center p-3 bg-blue-100 rounded-full mb-4">
             <Sparkles className="h-8 w-8 text-blue-600" />
