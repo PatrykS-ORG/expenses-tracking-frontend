@@ -28,7 +28,7 @@
 `onboarding.service.ts` intentionally mixes:
 
 - GraphQL requests for template/settings operations.
-- REST multipart upload for expense file upload.
+- REST requests for expense file upload + file preview/edit save.
 
 This is expected and should stay in the service layer.
 

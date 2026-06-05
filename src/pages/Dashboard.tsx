@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
-import { Wallet, LogOut, CheckCircle2, Eye, Sparkles, Trash2, Mail } from 'lucide-react'
+import { Wallet, LogOut, CheckCircle2, Eye, Sparkles, Trash2, Mail, RefreshCw, Save } from 'lucide-react'
 import type { Template } from '../types/template.types'
 import {
   createTemplate,
   deleteTemplate as deleteTemplateRequest,
+  getCurrentExpenseFile,
   getTemplateDashboard,
+  overwriteCurrentExpenseFile,
   sendTestEmail as sendTestEmailRequest,
   setActiveTemplate as setActiveTemplateRequest,
   updateDataSource,
@@ -36,6 +38,8 @@ export function Dashboard() {
   const [isApplyingTemplate, setIsApplyingTemplate] = useState(false)
   const [isSavingPath, setIsSavingPath] = useState(false)
   const [isUploadingExpenseFile, setIsUploadingExpenseFile] = useState(false)
+  const [isLoadingCurrentExpenseFile, setIsLoadingCurrentExpenseFile] = useState(false)
+  const [isSavingCurrentExpenseFile, setIsSavingCurrentExpenseFile] = useState(false)
   const [isSendingTestEmail, setIsSendingTestEmail] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -45,6 +49,8 @@ export function Dashboard() {
   const [dataSourceType, setDataSourceType] = useState<DataSourceType>('FILE_UPLOAD')
   const [nextcloudFilePath, setNextcloudFilePath] = useState('')
   const [uploadedFilePath, setUploadedFilePath] = useState<string | null>(null)
+  const [expenseFileContent, setExpenseFileContent] = useState('')
+  const [savedExpenseFileContent, setSavedExpenseFileContent] = useState('')
   const [selectedExpenseFile, setSelectedExpenseFile] = useState<File | null>(null)
   const [testEmailRecipient, setTestEmailRecipient] = useState('')
   const [showExamplePreview, setShowExamplePreview] = useState(true)
@@ -80,6 +86,7 @@ export function Dashboard() {
 
   const isSelectedTemplateActive =
     selectedTemplate?.kind === 'user' && selectedTemplate.template.id === activeTemplateId
+  const hasUnsavedExpenseFileChanges = expenseFileContent !== savedExpenseFileContent
 
   const selectPredefinedTemplate = useCallback((template: PredefinedTemplate) => {
     setSelectedTemplateId(template.id)
@@ -138,7 +145,12 @@ export function Dashboard() {
         setActiveTemplateId(dashboardData.activeTemplateId)
         setDataSourceType(dashboardData.dataSourceType)
         setNextcloudFilePath(dashboardData.nextcloudFilePath ?? '')
-        setUploadedFilePath(dashboardData.uploadedFilePath ?? null)
+        const currentUploadedFilePath = dashboardData.uploadedFilePath ?? null
+        setUploadedFilePath(currentUploadedFilePath)
+        if (!currentUploadedFilePath) {
+          setExpenseFileContent('')
+          setSavedExpenseFileContent('')
+        }
         setTestEmailRecipient((current) => current || user?.email || '')
         resolveInitialSelection(
           dashboardData.templates,
@@ -159,9 +171,43 @@ export function Dashboard() {
     [resolveInitialSelection, session?.access_token, user?.email],
   )
 
+  const syncCurrentExpenseFile = useCallback(async (accessToken: string) => {
+    setIsLoadingCurrentExpenseFile(true)
+    try {
+      const fileData = await getCurrentExpenseFile(accessToken)
+      setExpenseFileContent(fileData.content)
+      setSavedExpenseFileContent(fileData.content)
+      setUploadedFilePath(fileData.uploadedFilePath)
+    } finally {
+      setIsLoadingCurrentExpenseFile(false)
+    }
+  }, [])
+
+  const loadCurrentExpenseFile = useCallback(async () => {
+    if (!session?.access_token || !uploadedFilePath) {
+      setExpenseFileContent('')
+      setSavedExpenseFileContent('')
+      return
+    }
+
+    await syncCurrentExpenseFile(session.access_token)
+  }, [session?.access_token, syncCurrentExpenseFile, uploadedFilePath])
+
   useEffect(() => {
     void loadDashboardData()
   }, [loadDashboardData])
+
+  useEffect(() => {
+    if (!session?.access_token || !uploadedFilePath) {
+      return
+    }
+
+    void loadCurrentExpenseFile().catch((fetchError) => {
+      const message =
+        fetchError instanceof Error ? fetchError.message : 'Nie udało się pobrać treści pliku'
+      setError(message)
+    })
+  }, [loadCurrentExpenseFile, session?.access_token, uploadedFilePath])
 
   useEffect(() => {
     const params = new URLSearchParams(location.search)
@@ -292,6 +338,7 @@ export function Dashboard() {
       await uploadExpenseFile(session.access_token, selectedExpenseFile)
       setSelectedExpenseFile(null)
       await loadDashboardData(selectedTemplateId)
+      await syncCurrentExpenseFile(session.access_token)
       setDataSourceType('FILE_UPLOAD')
       setSuccess('Plik został przesłany i ustawiony jako źródło danych.')
     } catch (uploadError) {
@@ -300,6 +347,46 @@ export function Dashboard() {
       setError(message)
     } finally {
       setIsUploadingExpenseFile(false)
+    }
+  }
+
+  const handleRefreshExpenseFile = async () => {
+    setError(null)
+    setSuccess(null)
+    try {
+      await loadCurrentExpenseFile()
+      setSuccess('Odświeżono aktualną treść pliku.')
+    } catch (refreshError) {
+      const message =
+        refreshError instanceof Error ? refreshError.message : 'Nie udało się odświeżyć pliku'
+      setError(message)
+    }
+  }
+
+  const handleSaveExpenseFile = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!session?.access_token || !uploadedFilePath) {
+      return
+    }
+
+    setError(null)
+    setSuccess(null)
+    setIsSavingCurrentExpenseFile(true)
+    try {
+      await overwriteCurrentExpenseFile(
+        session.access_token,
+        expenseFileContent,
+        uploadedFilePath,
+      )
+      await loadDashboardData(selectedTemplateId)
+      await syncCurrentExpenseFile(session.access_token)
+      setSuccess('Zapisano zmiany w pliku wydatków.')
+    } catch (saveFileError) {
+      const message =
+        saveFileError instanceof Error ? saveFileError.message : 'Nie udało się zapisać zmian'
+      setError(message)
+    } finally {
+      setIsSavingCurrentExpenseFile(false)
     }
   }
 
@@ -414,13 +501,66 @@ export function Dashboard() {
                     disabled={isUploadingExpenseFile || !selectedExpenseFile}
                     className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isUploadingExpenseFile ? 'Przesyłanie...' : 'Prześlij plik'}
+                    {isUploadingExpenseFile ? 'Przesyłanie...' : 'Prześlij'}
                   </button>
                 </form>
                 {uploadedFilePath ? (
-                  <p className="text-xs text-gray-600">
-                    Aktualny plik: <span className="font-medium">{uploadedFilePath}</span>
-                  </p>
+                  <div className="space-y-3">
+                    <p className="text-xs text-gray-600">
+                      Aktualny plik: <span className="font-medium">{uploadedFilePath}</span>
+                    </p>
+                    <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="text-xs font-medium text-gray-700">
+                          Podgląd i edycja bieżącego pliku
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => void handleRefreshExpenseFile()}
+                          disabled={isLoadingCurrentExpenseFile || isSavingCurrentExpenseFile}
+                          className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                          Odśwież
+                        </button>
+                      </div>
+                      {isLoadingCurrentExpenseFile ? (
+                        <p className="text-xs text-gray-500">Ładowanie zawartości pliku...</p>
+                      ) : (
+                        <form onSubmit={handleSaveExpenseFile} className="space-y-2">
+                          <textarea
+                            value={expenseFileContent}
+                            onChange={(event) => setExpenseFileContent(event.target.value)}
+                            rows={10}
+                            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-xs text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                          />
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p
+                              className={`text-xs ${
+                                hasUnsavedExpenseFileChanges ? 'text-amber-700' : 'text-gray-500'
+                              }`}
+                            >
+                              {hasUnsavedExpenseFileChanges
+                                ? 'Masz niezapisane zmiany.'
+                                : 'Treść pliku jest zapisana.'}
+                            </p>
+                            <button
+                              type="submit"
+                              disabled={
+                                isSavingCurrentExpenseFile ||
+                                isLoadingCurrentExpenseFile ||
+                                !hasUnsavedExpenseFileChanges
+                              }
+                              className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <Save className="h-3.5 w-3.5" />
+                              {isSavingCurrentExpenseFile ? 'Zapisywanie...' : 'Zapisz zmiany'}
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
+                  </div>
                 ) : (
                   <p className="text-xs text-amber-700">
                     Nie masz jeszcze przesłanego pliku. Dodaj plik .txt lub .csv.

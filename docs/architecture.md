@@ -76,6 +76,8 @@ Page-level local state is used in `Dashboard` for:
 ### REST operation
 
 - `POST /api/data-sources/upload` (multipart form-data with file field `file`)
+- `GET /api/data-sources/upload/current` (fetch current uploaded file content for preview/edit)
+- `PUT /api/data-sources/upload/current` (save edited content over existing uploaded file via multipart `file`)
 
 ### URL strategy
 
@@ -92,6 +94,7 @@ This lets one env var drive both GraphQL and REST calls.
 - active template switch,
 - source selector:
   - Upload file (`.txt`, `.csv`)
+  - Preview/edit current uploaded file content and save overwrite
   - Nextcloud path,
 - test-email trigger.
 

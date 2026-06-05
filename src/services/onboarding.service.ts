@@ -27,10 +27,43 @@ export interface DashboardData {
   uploadedFilePath: string | null
 }
 
+export interface CurrentExpenseFile {
+  dataSourceType: 'FILE_UPLOAD'
+  uploadedFilePath: string
+  bucket: string
+  uploadedAt?: string
+  originalFileName?: string
+  content: string
+}
+
 const GRAPHQL_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/graphql'
 const API_BASE_URL = GRAPHQL_URL.endsWith('/graphql')
   ? GRAPHQL_URL.slice(0, -'/graphql'.length)
   : GRAPHQL_URL
+
+async function readRestError(response: Response): Promise<string> {
+  const raw = await response.text().catch(() => '')
+  if (!raw) {
+    return 'Nie udało się wykonać operacji'
+  }
+
+  try {
+    const asJson = JSON.parse(raw) as unknown
+    if (asJson && typeof asJson === 'object' && 'message' in asJson) {
+      const message = asJson.message
+      if (typeof message === 'string') {
+        return message
+      }
+      if (Array.isArray(message)) {
+        return message.filter((item): item is string => typeof item === 'string').join(', ')
+      }
+    }
+  } catch {
+    // Keep raw text fallback for non-JSON responses.
+  }
+
+  return raw
+}
 
 async function graphqlRequest<TData>(
   accessToken: string,
@@ -297,8 +330,46 @@ export async function uploadExpenseFile(accessToken: string, file: File): Promis
   })
 
   if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(errorText || 'Nie udało się przesłać pliku')
+    throw new Error(await readRestError(response))
+  }
+}
+
+export async function getCurrentExpenseFile(accessToken: string): Promise<CurrentExpenseFile> {
+  const response = await fetch(`${API_BASE_URL}/api/data-sources/upload/current`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(await readRestError(response))
+  }
+
+  return (await response.json()) as CurrentExpenseFile
+}
+
+export async function overwriteCurrentExpenseFile(
+  accessToken: string,
+  content: string,
+  uploadedFilePath: string,
+): Promise<void> {
+  const fileName = uploadedFilePath.split('/').pop() || 'expenses.txt'
+  const mimeType = fileName.toLowerCase().endsWith('.csv') ? 'text/csv' : 'text/plain'
+  const file = new File([content], fileName, { type: mimeType })
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const response = await fetch(`${API_BASE_URL}/api/data-sources/upload/current`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    throw new Error(await readRestError(response))
   }
 }
 
