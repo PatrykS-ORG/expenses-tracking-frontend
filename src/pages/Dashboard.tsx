@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
-import { Wallet, LogOut, CheckCircle2, Eye, Sparkles, Trash2, Mail, RefreshCw, Save } from 'lucide-react'
+import { Wallet, LogOut, CheckCircle2, Eye, Sparkles, Trash2, Mail, RefreshCw, Save, ScanSearch } from 'lucide-react'
 import type { Template } from '../types/template.types'
 import {
   createTemplate,
@@ -458,10 +458,21 @@ export function Dashboard() {
           )}
 
           <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">Źródło danych wydatków</h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Wybierz najprostszy wariant: prześlij plik bezpośrednio lub podłącz Nextcloud.
-            </p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Źródło danych wydatków</h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Wybierz najprostszy wariant: prześlij plik bezpośrednio lub podłącz Nextcloud.
+                </p>
+              </div>
+              <Link
+                to="/receipt-scan"
+                className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
+              >
+                <ScanSearch className="h-4 w-4" />
+                Skanuj paragon
+              </Link>
+            </div>
             <div className="mt-4 inline-flex rounded-md border border-gray-200 bg-gray-50 p-1">
               <button
                 type="button"

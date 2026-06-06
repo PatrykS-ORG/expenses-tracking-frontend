@@ -4,6 +4,7 @@ import { useAuthStore } from './store/useAuthStore'
 import { Auth } from './components/Auth'
 import { Dashboard } from './pages/Dashboard'
 import { Onboarding } from './pages/Onboarding'
+import { ReceiptScanner } from './pages/ReceiptScanner'
 
 export default function App() {
   const { session, isLoading, initialize } = useAuthStore()
@@ -34,6 +35,10 @@ export default function App() {
         <Route 
           path="/onboarding" 
           element={session ? <Onboarding /> : <Navigate to="/auth" />} 
+        />
+        <Route
+          path="/receipt-scan"
+          element={session ? <ReceiptScanner /> : <Navigate to="/auth" />}
         />
       </Routes>
     </Router>

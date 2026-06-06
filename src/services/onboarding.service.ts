@@ -36,6 +36,10 @@ export interface CurrentExpenseFile {
   content: string
 }
 
+export interface ReceiptScanResult {
+  extractedText: string
+}
+
 const GRAPHQL_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/graphql'
 const API_BASE_URL = GRAPHQL_URL.endsWith('/graphql')
   ? GRAPHQL_URL.slice(0, -'/graphql'.length)
@@ -391,4 +395,40 @@ export async function sendTestEmail(accessToken: string, recipientEmail: string)
   if (!data.sendTestEmail) {
     throw new Error('Nie udało się wysłać testowego e-maila')
   }
+}
+
+export async function scanReceipt(accessToken: string, file: File): Promise<ReceiptScanResult> {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const response = await fetch(`${API_BASE_URL}/api/receipts/scan`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    throw new Error(await readRestError(response))
+  }
+
+  return (await response.json()) as ReceiptScanResult
+}
+
+export async function approveReceiptExpenses(accessToken: string, text: string): Promise<void> {
+  const trimmedText = text.trim()
+  if (!trimmedText) {
+    throw new Error('Treść wydatków nie może być pusta')
+  }
+
+  await graphqlRequest<{ approveReceiptExpenses?: boolean }>(
+    accessToken,
+    `
+      mutation ApproveReceiptExpenses($input: ApproveReceiptExpensesInput!) {
+        approveReceiptExpenses(input: $input)
+      }
+    `,
+    { input: { text: trimmedText } },
+  )
 }
