@@ -6,8 +6,9 @@ ExpenseAI frontend is a React SPA (Vite) that:
 
 - authenticates users with Supabase Auth,
 - calls backend GraphQL for templates/settings,
-- calls backend REST for file upload,
-- guides users through onboarding → upload → dashboard workflow.
+- calls backend REST for file upload and receipt scanning,
+- guides users through onboarding → upload → dashboard workflow,
+- provides a receipt scanner page for OCR-based expense entry.
 
 ```mermaid
 flowchart TB
@@ -40,8 +41,10 @@ Defined in `src/App.tsx`:
 | `/auth` | session exists | redirect to `/` |
 | `/onboarding` | session exists | `Onboarding` |
 | `/onboarding` | no session | redirect to `/auth` |
+| `/receipt-scan` | session exists | `ReceiptScanner` |
+| `/receipt-scan` | no session | redirect to `/auth` |
 
-Onboarding success navigates to `/?setup=upload` to highlight the upload step.
+Onboarding success navigates to `/?setup=upload` to highlight the upload step. Dashboard links to `/receipt-scan` for receipt-based expense entry.
 
 ## State management
 
@@ -72,12 +75,14 @@ Page-level local state is used in `Dashboard` for:
 - `setActiveTemplate`
 - `updateDataSource`
 - `sendTestEmail`
+- `approveReceiptExpenses`
 
-### REST operation
+### REST operations
 
 - `POST /api/data-sources/upload` (multipart form-data with file field `file`)
 - `GET /api/data-sources/upload/current` (fetch current uploaded file content for preview/edit)
 - `PUT /api/data-sources/upload/current` (save edited content over existing uploaded file via multipart `file`)
+- `POST /api/receipts/scan` (multipart image upload; returns `{ extractedText }`)
 
 ### URL strategy
 
@@ -96,13 +101,24 @@ This lets one env var drive both GraphQL and REST calls.
   - Upload file (`.txt`, `.csv`)
   - Preview/edit current uploaded file content and save overwrite
   - Nextcloud path,
-- test-email trigger.
+- test-email trigger,
+- link to receipt scanner (`/receipt-scan`).
 
 `myTemplateSettings` response is mapped to:
 
 - `dataSourceType`,
 - `nextcloudFilePath`,
 - `uploadedFilePath`.
+
+## Receipt scanner flow
+
+`ReceiptScanner` page (`/receipt-scan`):
+
+1. User selects a receipt image (JPEG/PNG/WEBP, max 2MB) and submits for scan.
+2. `scanReceipt()` posts the image to `POST /api/receipts/scan`.
+3. Extracted text is shown in an editable textarea; user can correct OCR/AI output.
+4. `approveReceiptExpenses()` sends the edited text via GraphQL mutation.
+5. On success, navigates to `/` (expenses appended to the uploaded file on the backend).
 
 ## Onboarding flow
 

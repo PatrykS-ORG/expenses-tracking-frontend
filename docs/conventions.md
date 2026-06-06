@@ -27,8 +27,8 @@
 
 `onboarding.service.ts` intentionally mixes:
 
-- GraphQL requests for template/settings operations.
-- REST requests for expense file upload + file preview/edit save.
+- GraphQL requests for template/settings operations and receipt approval (`approveReceiptExpenses`).
+- REST requests for expense file upload, file preview/edit save, and receipt image scan (`scanReceipt`).
 
 This is expected and should stay in the service layer.
 

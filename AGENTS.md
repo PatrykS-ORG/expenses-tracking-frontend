@@ -10,6 +10,7 @@ Implemented frontend scope:
 - Dashboard template selection/activation
 - Data-source selection (`FILE_UPLOAD` / `NEXTCLOUD`)
 - Expense file upload via backend REST endpoint
+- Receipt scanner page (`/receipt-scan`) with image OCR scan and expense approval
 - Test-email trigger via GraphQL
 
 ## Prerequisites
@@ -35,7 +36,7 @@ src/
 ├── App.tsx
 ├── main.tsx
 ├── components/              # Auth component
-├── pages/                   # Dashboard, Onboarding
+├── pages/                   # Dashboard, Onboarding, ReceiptScanner
 ├── services/                # onboarding.service.ts
 ├── store/                   # useAuthStore, useOnboardingStore
 ├── lib/                     # supabase singleton + preview helpers
@@ -48,8 +49,8 @@ src/
 
 - Backend communication is centralized in `services/onboarding.service.ts`.
 - Service layer mixes:
-  - GraphQL operations for templates/settings/email
-  - REST multipart upload for `POST /api/data-sources/upload`
+  - GraphQL operations for templates/settings/email/receipt approval
+  - REST multipart upload for `POST /api/data-sources/upload` and `POST /api/receipts/scan`
 - `VITE_API_URL` defaults to `http://localhost:3000/graphql`; REST base URL is derived by removing `/graphql`.
 - Onboarding redirects to `/?setup=upload` so users complete file upload immediately.
 
