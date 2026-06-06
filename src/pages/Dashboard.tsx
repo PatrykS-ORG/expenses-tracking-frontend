@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
 import { Wallet, LogOut, CheckCircle2, Eye, Sparkles, Trash2, Mail, RefreshCw, Save, ScanSearch } from 'lucide-react'
-import type { Template } from '../types/template.types'
+import { MAX_USER_TEMPLATES, type Template } from '../types/template.types'
 import {
   createTemplate,
   deleteTemplate as deleteTemplateRequest,
@@ -86,6 +86,9 @@ export function Dashboard() {
 
   const isSelectedTemplateActive =
     selectedTemplate?.kind === 'user' && selectedTemplate.template.id === activeTemplateId
+  const hasReachedTemplateLimit = templates.length >= MAX_USER_TEMPLATES
+  const cannotAddSelectedTemplate =
+    selectedTemplate?.kind === 'predefined' && hasReachedTemplateLimit
   const hasUnsavedExpenseFileChanges = expenseFileContent !== savedExpenseFileContent
 
   const selectPredefinedTemplate = useCallback((template: PredefinedTemplate) => {
@@ -131,7 +134,7 @@ export function Dashboard() {
   )
 
   const loadDashboardData = useCallback(
-    async (preferredTemplateId?: string | null) => {
+    async (preferredTemplateId?: string | null, signal?: AbortSignal) => {
       if (!session?.access_token) {
         setIsCheckingOnboarding(false)
         return
@@ -140,7 +143,7 @@ export function Dashboard() {
       setError(null)
       setIsLoadingDashboard(true)
       try {
-        const dashboardData = await getTemplateDashboard(session.access_token)
+        const dashboardData = await getTemplateDashboard(session.access_token, signal)
         setTemplates(dashboardData.templates)
         setActiveTemplateId(dashboardData.activeTemplateId)
         setDataSourceType(dashboardData.dataSourceType)
@@ -158,12 +161,18 @@ export function Dashboard() {
           dashboardData.activeTemplateId,
         )
       } catch (fetchError) {
+        if (signal?.aborted) {
+          return
+        }
         const message =
           fetchError instanceof Error
             ? fetchError.message
             : 'Nie udało się pobrać danych dashboardu'
         setError(message)
       } finally {
+        if (signal?.aborted) {
+          return
+        }
         setIsLoadingDashboard(false)
         setIsCheckingOnboarding(false)
       }
@@ -194,7 +203,9 @@ export function Dashboard() {
   }, [session?.access_token, syncCurrentExpenseFile, uploadedFilePath])
 
   useEffect(() => {
-    void loadDashboardData()
+    const controller = new AbortController()
+    void loadDashboardData(undefined, controller.signal)
+    return () => controller.abort()
   }, [loadDashboardData])
 
   useEffect(() => {
@@ -633,6 +644,15 @@ export function Dashboard() {
                 <p className="mt-1 text-xs text-gray-500">
                   Wybierz szablon z listy, zobacz podgląd i ustaw go jako aktywny.
                 </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  {templates.length}/{MAX_USER_TEMPLATES} własnych szablonów
+                </p>
+                {hasReachedTemplateLimit && (
+                  <p className="mt-2 text-xs text-amber-700">
+                    Osiągnięto limit {MAX_USER_TEMPLATES} szablonów. Usuń istniejący szablon, aby dodać
+                    nowy.
+                  </p>
+                )}
               </div>
 
               <div className="mb-4">
@@ -720,13 +740,19 @@ export function Dashboard() {
               </div>
 
               <div className="mt-4 border-t border-gray-100 pt-4">
-                <Link
-                  to="/onboarding"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Wygeneruj nowy szablon
-                </Link>
+                {hasReachedTemplateLimit ? (
+                  <p className="text-center text-xs text-amber-700">
+                    Usuń istniejący szablon, aby wygenerować nowy.
+                  </p>
+                ) : (
+                  <Link
+                    to="/onboarding"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Wygeneruj nowy szablon
+                  </Link>
+                )}
               </div>
             </section>
 
@@ -801,7 +827,7 @@ export function Dashboard() {
                     <button
                       type="button"
                       onClick={() => void handleUseTemplate()}
-                      disabled={isApplyingTemplate || isSelectedTemplateActive}
+                      disabled={isApplyingTemplate || isSelectedTemplateActive || cannotAddSelectedTemplate}
                       className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isApplyingTemplate
@@ -812,12 +838,20 @@ export function Dashboard() {
                             ? 'Szablon aktywny'
                             : 'Użyj tego szablonu'}
                     </button>
-                    <Link
-                      to="/onboarding"
-                      className="text-sm text-blue-600 underline hover:text-blue-800"
-                    >
-                      Wygeneruj inny przez AI
-                    </Link>
+                    {cannotAddSelectedTemplate && (
+                      <p className="text-xs text-amber-700">
+                        Osiągnięto limit {MAX_USER_TEMPLATES} szablonów. Usuń istniejący szablon, aby dodać
+                        ten gotowy szablon.
+                      </p>
+                    )}
+                    {!hasReachedTemplateLimit && (
+                      <Link
+                        to="/onboarding"
+                        className="text-sm text-blue-600 underline hover:text-blue-800"
+                      >
+                        Wygeneruj inny przez AI
+                      </Link>
+                    )}
                   </div>
                 </div>
               )}

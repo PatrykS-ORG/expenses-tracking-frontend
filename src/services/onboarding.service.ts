@@ -73,6 +73,7 @@ async function graphqlRequest<TData>(
   accessToken: string,
   query: string,
   variables?: Record<string, unknown>,
+  signal?: AbortSignal,
 ): Promise<TData> {
   const res = await fetch(GRAPHQL_URL, {
     method: 'POST',
@@ -81,6 +82,7 @@ async function graphqlRequest<TData>(
       Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({ query, variables }),
+    signal,
   })
 
   if (!res.ok) {
@@ -155,7 +157,10 @@ export async function getMyTemplates(accessToken: string): Promise<Pick<Template
   return data.myTemplates ?? []
 }
 
-export async function getTemplateDashboard(accessToken: string): Promise<DashboardData> {
+export async function getTemplateDashboard(
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<DashboardData> {
   const data = await graphqlRequest<{
     myTemplates?: Template[]
     myTemplateSettings?: TemplateSettings
@@ -178,6 +183,8 @@ export async function getTemplateDashboard(accessToken: string): Promise<Dashboa
         }
       }
     `,
+    undefined,
+    signal,
   )
 
   return {

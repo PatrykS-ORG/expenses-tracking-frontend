@@ -1,11 +1,40 @@
 import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { useOnboardingStore } from '../store/useOnboardingStore'
+import { useAuthStore } from '../store/useAuthStore'
+import { getMyTemplates } from '../services/onboarding.service'
+import { MAX_USER_TEMPLATES } from '../types/template.types'
 import { ArrowLeft, Sparkles } from 'lucide-react'
 import type { TonePreference, DetailLevelPreference, FocusPreference, VisualStylePreference } from '../types/onboarding.types'
 
 export function Onboarding() {
   const navigate = useNavigate()
+  const session = useAuthStore((state) => state.session)
   const { preferences, isLoading, error, setPreference, submitPreferences } = useOnboardingStore()
+  const [templateCount, setTemplateCount] = useState<number | null>(null)
+  const hasReachedTemplateLimit =
+    templateCount !== null && templateCount >= MAX_USER_TEMPLATES
+
+  useEffect(() => {
+    if (!session?.access_token) {
+      return
+    }
+
+    const controller = new AbortController()
+    void getMyTemplates(session.access_token)
+      .then((templates) => {
+        if (!controller.signal.aborted) {
+          setTemplateCount(templates.length)
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setTemplateCount(null)
+        }
+      })
+
+    return () => controller.abort()
+  }, [session?.access_token])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -181,6 +210,15 @@ export function Onboarding() {
             </div>
           </div>
 
+          {hasReachedTemplateLimit && (
+            <div className="rounded-md bg-amber-50 p-4">
+              <div className="text-sm text-amber-800">
+                Masz już maksymalnie {MAX_USER_TEMPLATES} szablonów. Usuń istniejący szablon w panelu,
+                aby wygenerować nowy.
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="rounded-md bg-red-50 p-4">
               <div className="text-sm text-red-700">{error}</div>
@@ -190,7 +228,7 @@ export function Onboarding() {
           <div className="pt-6">
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || hasReachedTemplateLimit}
               className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? 'Generowanie szablonu...' : 'Dalej: wygeneruj szablon'}
