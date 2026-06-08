@@ -21,16 +21,11 @@
 - Never call backend directly from components.
 - Centralize backend calls in `src/services/`.
 - Attach `Authorization: Bearer ${accessToken}` for protected calls.
-- Keep one env entry point (`VITE_API_URL`) and derive REST base URL when needed.
+- Keep one env entry point (`VITE_API_URL`).
 
-### Mixed API style
+### API style
 
-`onboarding.service.ts` intentionally mixes:
-
-- GraphQL requests for template/settings operations and receipt approval (`approveReceiptExpenses`).
-- REST requests for expense file upload, file preview/edit save, and receipt image scan (`scanReceipt`).
-
-This is expected and should stay in the service layer.
+`onboarding.service.ts` uses GraphQL for all backend operations, including file uploads encoded as base64 in mutation inputs.
 
 ## Form handling
 
@@ -64,6 +59,6 @@ This is expected and should stay in the service layer.
 ## How to add a service function
 
 1. Add typed request/response shape.
-2. Use shared `graphqlRequest` helper or `fetch` for REST.
+2. Use the shared `graphqlRequest` helper.
 3. Throw meaningful `Error` for UI consumption.
 4. Avoid importing stores inside services.

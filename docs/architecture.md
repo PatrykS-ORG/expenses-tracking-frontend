@@ -5,8 +5,7 @@
 ExpenseAI frontend is a React SPA (Vite) that:
 
 - authenticates users with Supabase Auth,
-- calls backend GraphQL for templates/settings,
-- calls backend REST for file upload and receipt scanning,
+- calls backend GraphQL for templates, settings, file upload, and receipt scanning,
 - guides users through onboarding → upload → dashboard workflow,
 - provides a receipt scanner page for OCR-based expense entry.
 
@@ -76,20 +75,16 @@ Page-level local state is used in `Dashboard` for:
 - `updateDataSource`
 - `sendTestEmail`
 - `approveReceiptExpenses`
-
-### REST operations
-
-- `POST /api/data-sources/upload` (multipart form-data with file field `file`)
-- `GET /api/data-sources/upload/current` (fetch current uploaded file content for preview/edit)
-- `PUT /api/data-sources/upload/current` (save edited content over existing uploaded file via multipart `file`)
-- `POST /api/receipts/scan` (multipart image upload; returns `{ extractedText }`)
+- `uploadExpenseFile`
+- `currentExpenseFile`
+- `overwriteCurrentExpenseFile`
+- `scanReceipt`
 
 ### URL strategy
 
 - `GRAPHQL_URL = VITE_API_URL || http://localhost:3000/graphql`
-- `API_BASE_URL` is derived from `GRAPHQL_URL` by stripping trailing `/graphql`
 
-This lets one env var drive both GraphQL and REST calls.
+All backend calls go through this endpoint. File uploads use base64-encoded mutation inputs (`ExpenseFileUploadInput`, `ScanReceiptInput`).
 
 ## Dashboard flow
 
@@ -115,7 +110,7 @@ This lets one env var drive both GraphQL and REST calls.
 `ReceiptScanner` page (`/receipt-scan`):
 
 1. User selects a receipt image (JPEG/PNG/WEBP, max 2MB) and submits for scan.
-2. `scanReceipt()` posts the image to `POST /api/receipts/scan`.
+2. `scanReceipt()` sends the image as a GraphQL mutation with base64 payload.
 3. Extracted text is shown in an editable textarea; user can correct OCR/AI output.
 4. `approveReceiptExpenses()` sends the edited text via GraphQL mutation.
 5. On success, navigates to `/` (expenses appended to the uploaded file on the backend).

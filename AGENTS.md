@@ -9,7 +9,7 @@ Implemented frontend scope:
 - Onboarding questionnaire + AI template generation
 - Dashboard template selection/activation
 - Data-source selection (`FILE_UPLOAD` / `NEXTCLOUD`)
-- Expense file upload via backend REST endpoint
+- Expense file upload via backend GraphQL mutations
 - Receipt scanner page (`/receipt-scan`) with image OCR scan and expense approval
 - Test-email trigger via GraphQL
 
@@ -50,8 +50,8 @@ src/
 - Backend communication is centralized in `services/onboarding.service.ts`.
 - Service layer mixes:
   - GraphQL operations for templates/settings/email/receipt approval
-  - REST multipart upload for `POST /api/data-sources/upload` and `POST /api/receipts/scan`
-- `VITE_API_URL` defaults to `http://localhost:3000/graphql`; REST base URL is derived by removing `/graphql`.
+  - GraphQL mutations with base64 file inputs for expense upload and receipt scan
+- `VITE_API_URL` defaults to `http://localhost:3000/graphql`.
 - Onboarding redirects to `/?setup=upload` so users complete file upload immediately.
 
 ## Environment variables

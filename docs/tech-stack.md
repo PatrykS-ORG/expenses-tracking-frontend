@@ -21,8 +21,7 @@
 
 - Supabase JS (`@supabase/supabase-js`) for authentication/session lifecycle.
 - Backend API calls through `src/services/onboarding.service.ts`:
-  - GraphQL (`/graphql`) for templates/settings
-  - REST (`/api/data-sources/upload`) for multipart file upload
+  - GraphQL (`/graphql`) for all operations, including base64 file uploads
 
 ## Quality and tooling
 
