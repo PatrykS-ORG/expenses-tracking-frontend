@@ -32,24 +32,24 @@ flowchart TB
 
 Defined in `src/App.tsx`:
 
-| Path | Condition | Render |
-|---|---|---|
-| `/` | session exists | `Dashboard` |
-| `/` | no session | redirect to `/auth` |
-| `/auth` | no session | `Auth` |
-| `/auth` | session exists | redirect to `/` |
-| `/onboarding` | session exists | `Onboarding` |
-| `/onboarding` | no session | redirect to `/auth` |
-| `/receipt-scan` | session exists | `ReceiptScanner` |
-| `/receipt-scan` | no session | redirect to `/auth` |
+| Path            | Condition      | Render              |
+| --------------- | -------------- | ------------------- |
+| `/`             | session exists | `Dashboard`         |
+| `/`             | no session     | redirect to `/auth` |
+| `/auth`         | no session     | `Auth`              |
+| `/auth`         | session exists | redirect to `/`     |
+| `/onboarding`   | session exists | `Onboarding`        |
+| `/onboarding`   | no session     | redirect to `/auth` |
+| `/receipt-scan` | session exists | `ReceiptScanner`    |
+| `/receipt-scan` | no session     | redirect to `/auth` |
 
 Onboarding success navigates to `/?setup=upload` to highlight the upload step. Dashboard links to `/receipt-scan` for receipt-based expense entry.
 
 ## State management
 
-| Store | File | Responsibility |
-|---|---|---|
-| `useAuthStore` | `src/store/useAuthStore.ts` | session, user, bootstrapping, sign-out |
+| Store                | File                              | Responsibility                            |
+| -------------------- | --------------------------------- | ----------------------------------------- |
+| `useAuthStore`       | `src/store/useAuthStore.ts`       | session, user, bootstrapping, sign-out    |
 | `useOnboardingStore` | `src/store/useOnboardingStore.ts` | questionnaire state + template generation |
 
 Page-level local state is used in `Dashboard` for:

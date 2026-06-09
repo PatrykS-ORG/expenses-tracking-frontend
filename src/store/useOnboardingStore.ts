@@ -1,16 +1,19 @@
-import { create } from 'zustand'
-import type { OnboardingPreferences } from '../types/onboarding.types'
-import type { Template } from '../types/template.types'
-import { generateTemplate } from '../services/onboarding.service'
-import { useAuthStore } from './useAuthStore'
+import { create } from 'zustand';
+import type { OnboardingPreferences } from '../types/onboarding.types';
+import type { Template } from '../types/template.types';
+import { generateTemplate } from '../services/onboarding.service';
+import { useAuthStore } from './useAuthStore';
 
 interface OnboardingState {
-  preferences: OnboardingPreferences
-  generatedTemplate: Template | null
-  isLoading: boolean
-  error: string | null
-  setPreference: <K extends keyof OnboardingPreferences>(key: K, value: OnboardingPreferences[K]) => void
-  submitPreferences: () => Promise<void>
+  preferences: OnboardingPreferences;
+  generatedTemplate: Template | null;
+  isLoading: boolean;
+  error: string | null;
+  setPreference: <K extends keyof OnboardingPreferences>(
+    key: K,
+    value: OnboardingPreferences[K],
+  ) => void;
+  submitPreferences: () => Promise<void>;
 }
 
 const defaultPreferences: OnboardingPreferences = {
@@ -18,7 +21,7 @@ const defaultPreferences: OnboardingPreferences = {
   detailLevel: 'podsumowanie',
   focus: 'zrównoważony',
   visualStyle: 'minimalistyczny',
-}
+};
 
 export const useOnboardingStore = create<OnboardingState>()((set, get) => ({
   preferences: defaultPreferences,
@@ -32,32 +35,35 @@ export const useOnboardingStore = create<OnboardingState>()((set, get) => ({
         ...state.preferences,
         [key]: value,
       },
-    }))
+    }));
   },
 
   submitPreferences: async () => {
-    const { preferences } = get()
-    const session = useAuthStore.getState().session
-  
+    const { preferences } = get();
+    const session = useAuthStore.getState().session;
+
     if (!session?.access_token) {
-      set({ error: 'Brak autoryzacji' })
-      return
+      set({ error: 'Brak autoryzacji' });
+      return;
     }
 
-    set({ isLoading: true, error: null })
-    
+    set({ isLoading: true, error: null });
+
     try {
-      const template = await generateTemplate(preferences, session.access_token)
-      set({ generatedTemplate: template })
+      const template = await generateTemplate(
+        preferences,
+        session.access_token,
+      );
+      set({ generatedTemplate: template });
     } catch (error: unknown) {
       if (error instanceof Error) {
-        set({ error: error.message })
+        set({ error: error.message });
       } else {
-        set({ error: 'Wystąpił błąd podczas zapisywania preferencji' })
+        set({ error: 'Wystąpił błąd podczas zapisywania preferencji' });
       }
-      throw error
+      throw error;
     } finally {
-      set({ isLoading: false })
+      set({ isLoading: false });
     }
   },
-}))
+}));

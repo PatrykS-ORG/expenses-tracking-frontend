@@ -2,12 +2,12 @@
 
 ## File naming
 
-| Kind | Convention | Example |
-|---|---|---|
-| Component file | PascalCase `.tsx` | `Dashboard.tsx` |
-| Store file | camelCase `use*.ts` | `useAuthStore.ts` |
-| Service file | `<feature>.service.ts` | `onboarding.service.ts` |
-| Types file | `*.types.ts` | `template.types.ts` |
+| Kind           | Convention             | Example                 |
+| -------------- | ---------------------- | ----------------------- |
+| Component file | PascalCase `.tsx`      | `Dashboard.tsx`         |
+| Store file     | camelCase `use*.ts`    | `useAuthStore.ts`       |
+| Service file   | `<feature>.service.ts` | `onboarding.service.ts` |
+| Types file     | `*.types.ts`           | `template.types.ts`     |
 
 ## Component conventions
 

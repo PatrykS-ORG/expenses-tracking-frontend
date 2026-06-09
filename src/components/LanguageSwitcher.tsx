@@ -1,12 +1,12 @@
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next';
 
 export function LanguageSwitcher() {
-  const { i18n } = useTranslation()
-  const current = i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'pl'
+  const { i18n } = useTranslation();
+  const current = i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'pl';
 
   const switchTo = (lng: 'en' | 'pl') => {
-    void i18n.changeLanguage(lng)
-  }
+    void i18n.changeLanguage(lng);
+  };
 
   return (
     <div className="inline-flex rounded-md border border-gray-200 bg-gray-50 p-0.5 text-xs font-medium">
@@ -35,5 +35,5 @@ export function LanguageSwitcher() {
         PL
       </button>
     </div>
-  )
+  );
 }

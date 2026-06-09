@@ -21,14 +21,19 @@ Implemented frontend scope:
 
 ## Commands
 
-| Command | Purpose |
-|---|---|
-| `pnpm install` | Install dependencies |
-| `pnpm run dev` | Start Vite dev server |
-| `pnpm run build` | i18n check, type-check, and build |
-| `pnpm run lint` | ESLint + i18n key parity check |
-| `pnpm i18n:check` | Verify `en`/`pl` locale files stay in sync |
-| `pnpm run preview` | Preview production build |
+| Command                 | Purpose                                         |
+| ----------------------- | ----------------------------------------------- |
+| `pnpm install`          | Install dependencies                            |
+| `pnpm run dev`          | Start Vite dev server                           |
+| `pnpm run build`        | i18n check, type-check, and build               |
+| `pnpm run lint`         | ESLint + Prettier check + i18n key parity check |
+| `pnpm run lint:fix`     | Auto-fix ESLint and Prettier issues             |
+| `pnpm run format`       | Format all files with Prettier                  |
+| `pnpm run format:check` | Verify Prettier formatting without writing      |
+| `pnpm i18n:check`       | Verify `en`/`pl` locale files stay in sync      |
+| `pnpm run preview`      | Preview production build                        |
+
+A Husky pre-commit hook runs `lint-staged` (ESLint + Prettier) on staged files before each commit.
 
 ## Directory structure
 
@@ -59,7 +64,7 @@ src/
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
-- `VITE_API_URL` 
+- `VITE_API_URL`
 
 ## Common pitfalls
 

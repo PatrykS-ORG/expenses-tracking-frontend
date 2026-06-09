@@ -25,6 +25,8 @@
 
 ## Quality and tooling
 
-- ESLint 9 + TypeScript ESLint
+- ESLint 9 + TypeScript ESLint + Prettier
+- `pnpm run lint` — ESLint, Prettier, and i18n checks
+- `pnpm run format` — apply Prettier formatting
 - Vite build (`tsc -b && vite build`)
 - pnpm as package manager

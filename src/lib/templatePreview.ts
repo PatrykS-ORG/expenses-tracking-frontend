@@ -6,30 +6,36 @@ export const TEMPLATE_PLACEHOLDER_KEYS = [
   'savingsAmount',
   'savingsMessage',
   'expensesList',
-] as const
+] as const;
 
-export type TemplatePlaceholderKey = (typeof TEMPLATE_PLACEHOLDER_KEYS)[number]
+export type TemplatePlaceholderKey = (typeof TEMPLATE_PLACEHOLDER_KEYS)[number];
 
-const EXAMPLE_SALARY_PLN = 6500
-const EXAMPLE_EXPENSE_AMOUNTS_PLN = [1240, 300, 100, 486.5] as const
-const EXAMPLE_TOTAL_EXPENSES_PLN = EXAMPLE_EXPENSE_AMOUNTS_PLN.reduce((sum, amount) => sum + amount, 0)
-const EXAMPLE_REMAINING_PLN = EXAMPLE_SALARY_PLN - EXAMPLE_TOTAL_EXPENSES_PLN
+const EXAMPLE_SALARY_PLN = 6500;
+const EXAMPLE_EXPENSE_AMOUNTS_PLN = [1240, 300, 100, 486.5] as const;
+const EXAMPLE_TOTAL_EXPENSES_PLN = EXAMPLE_EXPENSE_AMOUNTS_PLN.reduce(
+  (sum, amount) => sum + amount,
+  0,
+);
+const EXAMPLE_REMAINING_PLN = EXAMPLE_SALARY_PLN - EXAMPLE_TOTAL_EXPENSES_PLN;
 
 function resolveLocale(locale?: string): 'en' | 'pl' {
-  return locale?.startsWith('en') ? 'en' : 'pl'
+  return locale?.startsWith('en') ? 'en' : 'pl';
 }
 
 function formatPlnAmountPl(amount: number): string {
-  const [integerPart, fractionalPart] = amount.toFixed(2).split('.')
-  const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-  return `${groupedInteger},${fractionalPart} zł`
+  const [integerPart, fractionalPart] = amount.toFixed(2).split('.');
+  const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return `${groupedInteger},${fractionalPart} zł`;
 }
 
 function formatPlnAmountEn(amount: number): string {
-  return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PLN`
+  return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PLN`;
 }
 
-function buildExpensesListHtml(formatAmount: (amount: number) => string, locale: 'en' | 'pl'): string {
+function buildExpensesListHtml(
+  formatAmount: (amount: number) => string,
+  locale: 'en' | 'pl',
+): string {
   const labels =
     locale === 'en'
       ? {
@@ -59,7 +65,7 @@ function buildExpensesListHtml(formatAmount: (amount: number) => string, locale:
           transport: 'Transport',
           fuelCommute: 'Paliwo i komunikacja',
           total: 'Razem wydatki',
-        }
+        };
 
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="expenses-table" style="border-collapse:collapse;width:100%;min-width:260px;font-size:13px;">
   <tr>
@@ -110,43 +116,48 @@ function buildExpensesListHtml(formatAmount: (amount: number) => string, locale:
     <td style="padding:16px 8px 4px 0;font-weight:800;color:#14532d;border-top:2px dashed #10b981;font-size:14px;vertical-align:top;">${labels.total}</td>
     <td align="right" class="amount-cell num" style="padding:16px 0 4px;font-weight:800;color:#14532d;border-top:2px dashed #10b981;font-size:14px;white-space:nowrap;vertical-align:top;">${formatAmount(EXAMPLE_TOTAL_EXPENSES_PLN)}</td>
   </tr>
-</table>`
+</table>`;
 }
 
 function displayNameFromEmail(email: string | null | undefined): string {
   if (!email) {
-    return 'Anna Kowalska'
+    return 'Anna Kowalska';
   }
-  const localPart = email.split('@')[0]?.trim()
+  const localPart = email.split('@')[0]?.trim();
   if (!localPart) {
-    return 'Anna Kowalska'
+    return 'Anna Kowalska';
   }
-  const words = localPart.replace(/[._-]+/g, ' ').split(/\s+/).filter(Boolean)
+  const words = localPart
+    .replace(/[._-]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
   if (words.length === 0) {
-    return 'Anna Kowalska'
+    return 'Anna Kowalska';
   }
-  return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')
+  return words
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
 }
 
 export function getExampleTemplateValues(
   userEmail?: string | null,
   locale?: string,
 ): Record<TemplatePlaceholderKey, string> {
-  const lang = resolveLocale(locale)
-  const formatAmount = lang === 'en' ? formatPlnAmountEn : formatPlnAmountPl
-  const totalExpensesFormatted = formatAmount(EXAMPLE_TOTAL_EXPENSES_PLN)
-  const salaryFormatted = formatAmount(EXAMPLE_SALARY_PLN)
-  const remainingFormatted = formatAmount(EXAMPLE_REMAINING_PLN)
-  const now = new Date(2026, 5, 1)
+  const lang = resolveLocale(locale);
+  const formatAmount = lang === 'en' ? formatPlnAmountEn : formatPlnAmountPl;
+  const totalExpensesFormatted = formatAmount(EXAMPLE_TOTAL_EXPENSES_PLN);
+  const salaryFormatted = formatAmount(EXAMPLE_SALARY_PLN);
+  const remainingFormatted = formatAmount(EXAMPLE_REMAINING_PLN);
+  const now = new Date(2026, 5, 1);
   const currentMonth =
     lang === 'en'
       ? now.toLocaleString('en-US', { month: 'long', year: 'numeric' })
-      : now.toLocaleString('pl-PL', { month: 'long', year: 'numeric' })
+      : now.toLocaleString('pl-PL', { month: 'long', year: 'numeric' });
 
   const savingsMessage =
     lang === 'en'
       ? `Salary was ${salaryFormatted}, expenses ${totalExpensesFormatted} — ${remainingFormatted} left for the month. Groceries and fuel were the largest budget items.`
-      : `Wypłata wyniosła ${salaryFormatted}, wydatki ${totalExpensesFormatted} — na koncie miesiąca zostało ${remainingFormatted}. Największy udział w budżecie miały zakupy spożywcze i paliwo.`
+      : `Wypłata wyniosła ${salaryFormatted}, wydatki ${totalExpensesFormatted} — na koncie miesiąca zostało ${remainingFormatted}. Największy udział w budżecie miały zakupy spożywcze i paliwo.`;
 
   return {
     userName: displayNameFromEmail(userEmail),
@@ -156,17 +167,17 @@ export function getExampleTemplateValues(
     savingsAmount: `+ ${remainingFormatted}`,
     savingsMessage,
     expensesList: buildExpensesListHtml(formatAmount, lang),
-  }
+  };
 }
 
 export function applyTemplatePreviewSamples(
   html: string,
   values: Record<TemplatePlaceholderKey, string>,
 ): string {
-  let result = html
+  let result = html;
   for (const key of TEMPLATE_PLACEHOLDER_KEYS) {
-    const pattern = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g')
-    result = result.replace(pattern, values[key])
+    const pattern = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g');
+    result = result.replace(pattern, values[key]);
   }
-  return result
+  return result;
 }
