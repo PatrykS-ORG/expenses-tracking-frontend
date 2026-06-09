@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { Wallet } from 'lucide-react';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { APP_NAME } from '../lib/constants';
 
 export function Auth() {
   const { t } = useTranslation();
@@ -53,7 +54,10 @@ export function Auth() {
           <div className="rounded-full bg-blue-100 p-3">
             <Wallet className="h-8 w-8 text-blue-600" />
           </div>
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
+          <p className="mt-6 text-2xl font-semibold text-gray-900">
+            {APP_NAME}
+          </p>
+          <h2 className="mt-2 text-center text-xl font-medium tracking-tight text-gray-700">
             {isSignUp ? t('auth.signUp') : t('auth.signIn')}
           </h2>
         </div>

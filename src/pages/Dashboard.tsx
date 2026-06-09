@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/useAuthStore';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { APP_NAME } from '../lib/constants';
 import {
   Wallet,
   LogOut,
@@ -518,7 +519,7 @@ export function Dashboard() {
             <div className="flex items-center">
               <Wallet className="h-6 w-6 text-blue-600" />
               <span className="ml-2 text-xl font-semibold text-gray-900">
-                ExpenseAI
+                {APP_NAME}
               </span>
             </div>
             <div className="flex items-center gap-4">

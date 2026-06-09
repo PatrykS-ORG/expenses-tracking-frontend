@@ -15,6 +15,7 @@ import {
   scanReceipt,
 } from '../services/onboarding.service';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { APP_NAME } from '../lib/constants';
 
 export function ReceiptScanner() {
   const { t } = useTranslation();
@@ -111,7 +112,7 @@ export function ReceiptScanner() {
           <div className="flex items-center">
             <Wallet className="h-6 w-6 text-blue-600" />
             <span className="ml-2 text-xl font-semibold text-gray-900">
-              ExpenseAI
+              {APP_NAME}
             </span>
           </div>
           <div className="flex items-center gap-4">

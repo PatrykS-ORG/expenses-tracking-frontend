@@ -1,6 +1,6 @@
 # AGENTS.md — expenses-tracking-frontend
 
-React 19 + Vite SPA for **ExpenseAI**.
+React 19 + Vite SPA for **Spendwell**.
 
 Implemented frontend scope:
 

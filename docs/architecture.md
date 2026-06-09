@@ -2,7 +2,7 @@
 
 ## System context
 
-ExpenseAI frontend is a React SPA (Vite) that:
+Spendwell frontend is a React SPA (Vite) that:
 
 - authenticates users with Supabase Auth,
 - calls backend GraphQL for templates, settings, file upload, and receipt scanning,
