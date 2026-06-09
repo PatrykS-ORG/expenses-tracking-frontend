@@ -47,8 +47,12 @@ alwaysApply: true
 - Components consume data via stores or hooks that wrap services.
 - Handle loading and error state in the store or page, not buried inside leaf components.
 
-## Language & copy
-- User-facing UI text in **Polish** unless the task specifies otherwise.
+## Language & copy (i18n)
+- All user-facing UI text goes through **react-i18next** (`useTranslation`, `t('key')`).
+- Maintain **both** `src/locales/pl/translation.json` and `src/locales/en/translation.json` with matching keys.
+- Do not hardcode Polish or English strings in components.
+- Run `pnpm i18n:check` after UI copy changes (also runs in `pnpm build` and `pnpm lint`).
+- See `.cursor/rules/i18n-translations.mdc` for full workflow.
 - Code comments and identifiers in **English**.
 
 ## Documentation

@@ -1,8 +1,11 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import { Wallet } from 'lucide-react'
+import { LanguageSwitcher } from './LanguageSwitcher'
 
 export function Auth() {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -21,7 +24,7 @@ export function Auth() {
           password,
         })
         if (error) throw error
-        alert('Konto założone! Możesz się teraz zalogować.')
+        alert(t('auth.accountCreated'))
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -33,7 +36,7 @@ export function Auth() {
       if (err instanceof Error) {
         setError(err.message)
       } else {
-        setError('Wystąpił błąd podczas logowania')
+        setError(t('auth.authError'))
       }
     } finally {
       setLoading(false)
@@ -41,14 +44,17 @@ export function Auth() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+    <div className="relative flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+      <div className="absolute right-4 top-4 sm:right-8 sm:top-8">
+        <LanguageSwitcher />
+      </div>
       <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-xl shadow-lg">
         <div className="flex flex-col items-center justify-center">
           <div className="rounded-full bg-blue-100 p-3">
             <Wallet className="h-8 w-8 text-blue-600" />
           </div>
           <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-            {isSignUp ? 'Utwórz konto' : 'Zaloguj się'}
+            {isSignUp ? t('auth.signUp') : t('auth.signIn')}
           </h2>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleAuth}>
@@ -61,7 +67,7 @@ export function Auth() {
                 autoComplete="email"
                 required
                 className="relative block w-full appearance-none rounded-none rounded-t-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:z-10 focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
-                placeholder="Adres e-mail"
+                placeholder={t('auth.emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -74,7 +80,7 @@ export function Auth() {
                 autoComplete="current-password"
                 required
                 className="relative block w-full appearance-none rounded-none rounded-b-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:z-10 focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
-                placeholder="Hasło"
+                placeholder={t('auth.passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -93,7 +99,11 @@ export function Auth() {
               disabled={loading}
               className="group relative flex w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
             >
-              {loading ? 'Przetwarzanie...' : isSignUp ? 'Zarejestruj się' : 'Zaloguj się'}
+              {loading
+                ? t('common.processing')
+                : isSignUp
+                  ? t('auth.register')
+                  : t('auth.signIn')}
             </button>
           </div>
         </form>
@@ -103,7 +113,7 @@ export function Auth() {
             onClick={() => setIsSignUp(!isSignUp)}
             className="text-sm text-blue-600 hover:text-blue-500"
           >
-            {isSignUp ? 'Masz już konto? Zaloguj się' : 'Nie masz konta? Zarejestruj się'}
+            {isSignUp ? t('auth.hasAccount') : t('auth.noAccount')}
           </button>
         </div>
       </div>

@@ -1,0 +1,66 @@
+---
+description: Require EN/PL translation updates for all user-facing UI copy
+globs: expenses-tracking-frontend/src/**/*.{tsx,ts,json}
+alwaysApply: false
+---
+
+# Internationalization (EN / PL)
+
+The app uses **react-i18next**. Supported locales: `en`, `pl`.
+
+## When this rule applies
+
+Any change that adds, edits, or removes **user-facing text** in `src/pages/`, `src/components/`, or related stores must include translation updates.
+
+## Required workflow
+
+1. **Never hardcode UI copy** in JSX/TS (no Polish/English literals for labels, buttons, errors, placeholders, alerts, `window.confirm`, etc.).
+2. Use `useTranslation()` and `t('namespace.key')` in components.
+3. Add the key to **both** files, with the same nested structure:
+   - `src/locales/pl/translation.json`
+   - `src/locales/en/translation.json`
+4. Run `pnpm i18n:check` before finishing the task.
+
+## Key naming
+
+- Group by feature: `auth.*`, `dashboard.*`, `onboarding.*`, `receiptScanner.*`, `common.*`
+- Use camelCase segments: `dashboard.saveChanges`, not `dashboard.save-changes`
+- Interpolation: `t('dashboard.deleteConfirm', { name })` — add matching `{{name}}` in both locale files
+
+## Predefined email templates
+
+- UI strings → translation JSON files
+- Template HTML bodies → `predefinedTemplates.pl.json` and `predefinedTemplates.en.json`
+- After editing Polish templates, regenerate English: `node scripts/build-en-templates.mjs`
+- Preview sample data → `src/lib/templatePreview.ts` (both locales)
+
+## API / backend values
+
+Onboarding enum values sent to the API (`formalny`, `podsumowanie`, …) stay unchanged. Only **labels** shown in the UI are translated.
+
+## Examples
+
+```tsx
+// BAD — hardcoded copy
+<button>Zapisz</button>
+setSuccess('Plik został przesłany.')
+
+// GOOD
+const { t } = useTranslation()
+<button>{t('common.save')}</button>
+setSuccess(t('dashboard.fileUploaded'))
+```
+
+```json
+// pl/translation.json
+{ "dashboard": { "fileUploaded": "Plik został przesłany..." } }
+
+// en/translation.json — same key, English value
+{ "dashboard": { "fileUploaded": "File was uploaded..." } }
+```
+
+## Verification checklist
+
+- [ ] New/changed `t('...')` keys exist in `pl` and `en`
+- [ ] No new hardcoded user-facing strings in `.tsx`
+- [ ] `pnpm i18n:check` passes

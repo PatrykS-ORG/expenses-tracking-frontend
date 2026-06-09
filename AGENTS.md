@@ -25,8 +25,9 @@ Implemented frontend scope:
 |---|---|
 | `pnpm install` | Install dependencies |
 | `pnpm run dev` | Start Vite dev server |
-| `pnpm run build` | Type-check and build |
-| `pnpm run lint` | Run ESLint |
+| `pnpm run build` | i18n check, type-check, and build |
+| `pnpm run lint` | ESLint + i18n key parity check |
+| `pnpm i18n:check` | Verify `en`/`pl` locale files stay in sync |
 | `pnpm run preview` | Preview production build |
 
 ## Directory structure
