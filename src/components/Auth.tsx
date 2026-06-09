@@ -1,47 +1,47 @@
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { supabase } from '../lib/supabase'
-import { Wallet } from 'lucide-react'
-import { LanguageSwitcher } from './LanguageSwitcher'
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { supabase } from '../lib/supabase';
+import { Wallet } from 'lucide-react';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 export function Auth() {
-  const { t } = useTranslation()
-  const [loading, setLoading] = useState(false)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [isSignUp, setIsSignUp] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { t } = useTranslation();
+  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
     try {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-        })
-        if (error) throw error
-        alert(t('auth.accountCreated'))
+        });
+        if (error) throw error;
+        alert(t('auth.accountCreated'));
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
-        })
-        if (error) throw error
+        });
+        if (error) throw error;
       }
     } catch (err: unknown) {
       if (err instanceof Error) {
-        setError(err.message)
+        setError(err.message);
       } else {
-        setError(t('auth.authError'))
+        setError(t('auth.authError'));
       }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
@@ -88,9 +88,7 @@ export function Auth() {
           </div>
 
           {error && (
-            <div className="text-red-500 text-sm text-center">
-              {error}
-            </div>
+            <div className="text-red-500 text-sm text-center">{error}</div>
           )}
 
           <div>
@@ -118,5 +116,5 @@ export function Auth() {
         </div>
       </div>
     </div>
-  )
+  );
 }

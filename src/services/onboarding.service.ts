@@ -1,64 +1,65 @@
-import type { OnboardingPreferences } from '../types/onboarding.types'
-import type { Template } from '../types/template.types'
+import type { OnboardingPreferences } from '../types/onboarding.types';
+import type { Template } from '../types/template.types';
 
 interface GraphQLError {
-  message?: string
+  message?: string;
 }
 
 interface GraphQLResponse<TData> {
-  data?: TData
-  errors?: GraphQLError[]
+  data?: TData;
+  errors?: GraphQLError[];
 }
 
 interface TemplateSettings {
-  active_template_id: string | null
-  data_source_type: DataSourceType
-  nextcloud_file_path: string | null
-  uploaded_file_path: string | null
+  active_template_id: string | null;
+  data_source_type: DataSourceType;
+  nextcloud_file_path: string | null;
+  uploaded_file_path: string | null;
 }
 
-export type DataSourceType = 'FILE_UPLOAD' | 'NEXTCLOUD'
+export type DataSourceType = 'FILE_UPLOAD' | 'NEXTCLOUD';
 
 export interface DashboardData {
-  templates: Template[]
-  activeTemplateId: string | null
-  dataSourceType: DataSourceType
-  nextcloudFilePath: string | null
-  uploadedFilePath: string | null
+  templates: Template[];
+  activeTemplateId: string | null;
+  dataSourceType: DataSourceType;
+  nextcloudFilePath: string | null;
+  uploadedFilePath: string | null;
 }
 
 export interface CurrentExpenseFile {
-  dataSourceType: 'FILE_UPLOAD'
-  uploadedFilePath: string
-  bucket: string
-  uploadedAt?: string
-  originalFileName?: string
-  content: string
+  dataSourceType: 'FILE_UPLOAD';
+  uploadedFilePath: string;
+  bucket: string;
+  uploadedAt?: string;
+  originalFileName?: string;
+  content: string;
 }
 
 export interface ReceiptScanResult {
-  extractedText: string
+  extractedText: string;
 }
 
-const GRAPHQL_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/graphql'
+const GRAPHQL_URL =
+  import.meta.env.VITE_API_URL || 'http://localhost:3000/graphql';
 
 async function fileToUploadInput(file: File): Promise<{
-  fileName: string
-  mimeType: string
-  contentBase64: string
+  fileName: string;
+  mimeType: string;
+  contentBase64: string;
 }> {
-  const buffer = await file.arrayBuffer()
-  const bytes = new Uint8Array(buffer)
-  let binary = ''
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
   for (let i = 0; i < bytes.length; i += 1) {
-    binary += String.fromCharCode(bytes[i]!)
+    binary += String.fromCharCode(bytes[i]!);
   }
 
   return {
     fileName: file.name,
     mimeType: file.type || 'application/octet-stream',
     contentBase64: btoa(binary),
-  }
+  };
 }
 
 async function graphqlRequest<TData>(
@@ -75,24 +76,24 @@ async function graphqlRequest<TData>(
     },
     body: JSON.stringify({ query, variables }),
     signal,
-  })
+  });
 
   if (!res.ok) {
-    const errorData = await res.json().catch(() => null)
-    console.error('GraphQL HTTP error:', errorData)
-    throw new Error('Błąd połączenia z serwerem GraphQL')
+    const errorData = await res.json().catch(() => null);
+    console.error('GraphQL HTTP error:', errorData);
+    throw new Error('Błąd połączenia z serwerem GraphQL');
   }
 
-  const { data, errors } = (await res.json()) as GraphQLResponse<TData>
+  const { data, errors } = (await res.json()) as GraphQLResponse<TData>;
   if (errors && errors.length > 0) {
-    throw new Error(errors[0].message || 'Błąd operacji GraphQL')
+    throw new Error(errors[0].message || 'Błąd operacji GraphQL');
   }
 
   if (!data) {
-    throw new Error('Serwer nie zwrócił danych')
+    throw new Error('Serwer nie zwrócił danych');
   }
 
-  return data
+  return data;
 }
 
 export async function generateTemplate(
@@ -123,17 +124,19 @@ export async function generateTemplate(
     accessToken,
     query,
     variables,
-  )
+  );
 
-  const template = data.generateTemplate
+  const template = data.generateTemplate;
   if (!template?.content) {
-    throw new Error('Serwer nie zwrócił wygenerowanego szablonu HTML.')
+    throw new Error('Serwer nie zwrócił wygenerowanego szablonu HTML.');
   }
 
-  return template
+  return template;
 }
 
-export async function getMyTemplates(accessToken: string): Promise<Pick<Template, 'id' | 'name'>[]> {
+export async function getMyTemplates(
+  accessToken: string,
+): Promise<Pick<Template, 'id' | 'name'>[]> {
   const query = `
     query MyTemplates {
       myTemplates {
@@ -142,11 +145,10 @@ export async function getMyTemplates(accessToken: string): Promise<Pick<Template
       }
     }
   `;
-  const data = await graphqlRequest<{ myTemplates?: Pick<Template, 'id' | 'name'>[] }>(
-    accessToken,
-    query,
-  )
-  return data.myTemplates ?? []
+  const data = await graphqlRequest<{
+    myTemplates?: Pick<Template, 'id' | 'name'>[];
+  }>(accessToken, query);
+  return data.myTemplates ?? [];
 }
 
 export async function getTemplateDashboard(
@@ -154,8 +156,8 @@ export async function getTemplateDashboard(
   signal?: AbortSignal,
 ): Promise<DashboardData> {
   const data = await graphqlRequest<{
-    myTemplates?: Template[]
-    myTemplateSettings?: TemplateSettings
+    myTemplates?: Template[];
+    myTemplateSettings?: TemplateSettings;
   }>(
     accessToken,
     `
@@ -177,7 +179,7 @@ export async function getTemplateDashboard(
     `,
     undefined,
     signal,
-  )
+  );
 
   return {
     templates: data.myTemplates ?? [],
@@ -185,7 +187,7 @@ export async function getTemplateDashboard(
     dataSourceType: data.myTemplateSettings?.data_source_type ?? 'FILE_UPLOAD',
     nextcloudFilePath: data.myTemplateSettings?.nextcloud_file_path ?? null,
     uploadedFilePath: data.myTemplateSettings?.uploaded_file_path ?? null,
-  }
+  };
 }
 
 export async function createTemplate(
@@ -212,13 +214,13 @@ export async function createTemplate(
         content,
       },
     },
-  )
+  );
 
   if (!data.createTemplate) {
-    throw new Error('Nie udało się utworzyć szablonu')
+    throw new Error('Nie udało się utworzyć szablonu');
   }
 
-  return data.createTemplate
+  return data.createTemplate;
 }
 
 export async function updateTemplate(
@@ -247,16 +249,19 @@ export async function updateTemplate(
         content,
       },
     },
-  )
+  );
 
   if (!data.updateTemplate) {
-    throw new Error('Nie udało się zaktualizować szablonu')
+    throw new Error('Nie udało się zaktualizować szablonu');
   }
 
-  return data.updateTemplate
+  return data.updateTemplate;
 }
 
-export async function deleteTemplate(accessToken: string, templateId: string): Promise<void> {
+export async function deleteTemplate(
+  accessToken: string,
+  templateId: string,
+): Promise<void> {
   const data = await graphqlRequest<{ deleteTemplate?: boolean }>(
     accessToken,
     `
@@ -265,14 +270,17 @@ export async function deleteTemplate(accessToken: string, templateId: string): P
       }
     `,
     { templateId },
-  )
+  );
 
   if (!data.deleteTemplate) {
-    throw new Error('Nie udało się usunąć szablonu')
+    throw new Error('Nie udało się usunąć szablonu');
   }
 }
 
-export async function setActiveTemplate(accessToken: string, templateId: string): Promise<void> {
+export async function setActiveTemplate(
+  accessToken: string,
+  templateId: string,
+): Promise<void> {
   const data = await graphqlRequest<{ setActiveTemplate?: boolean }>(
     accessToken,
     `
@@ -281,10 +289,10 @@ export async function setActiveTemplate(accessToken: string, templateId: string)
       }
     `,
     { templateId },
-  )
+  );
 
   if (!data.setActiveTemplate) {
-    throw new Error('Nie udało się ustawić aktywnego szablonu')
+    throw new Error('Nie udało się ustawić aktywnego szablonu');
   }
 }
 
@@ -292,7 +300,7 @@ export async function updateNextcloudFilePath(
   accessToken: string,
   nextcloudFilePath: string,
 ): Promise<void> {
-  await updateDataSource(accessToken, 'NEXTCLOUD', nextcloudFilePath)
+  await updateDataSource(accessToken, 'NEXTCLOUD', nextcloudFilePath);
 }
 
 export async function updateDataSource(
@@ -313,15 +321,18 @@ export async function updateDataSource(
         nextcloudFilePath,
       },
     },
-  )
+  );
 
   if (!data.updateDataSource) {
-    throw new Error('Nie udało się zaktualizować źródła danych')
+    throw new Error('Nie udało się zaktualizować źródła danych');
   }
 }
 
-export async function uploadExpenseFile(accessToken: string, file: File): Promise<void> {
-  const input = await fileToUploadInput(file)
+export async function uploadExpenseFile(
+  accessToken: string,
+  file: File,
+): Promise<void> {
+  const input = await fileToUploadInput(file);
   await graphqlRequest<{ uploadExpenseFile?: { uploadedFilePath: string } }>(
     accessToken,
     `
@@ -332,11 +343,15 @@ export async function uploadExpenseFile(accessToken: string, file: File): Promis
       }
     `,
     { input },
-  )
+  );
 }
 
-export async function getCurrentExpenseFile(accessToken: string): Promise<CurrentExpenseFile> {
-  const data = await graphqlRequest<{ currentExpenseFile?: CurrentExpenseFile }>(
+export async function getCurrentExpenseFile(
+  accessToken: string,
+): Promise<CurrentExpenseFile> {
+  const data = await graphqlRequest<{
+    currentExpenseFile?: CurrentExpenseFile;
+  }>(
     accessToken,
     `
       query CurrentExpenseFile {
@@ -350,13 +365,13 @@ export async function getCurrentExpenseFile(accessToken: string): Promise<Curren
         }
       }
     `,
-  )
+  );
 
   if (!data.currentExpenseFile) {
-    throw new Error('Nie udało się pobrać pliku wydatków')
+    throw new Error('Nie udało się pobrać pliku wydatków');
   }
 
-  return data.currentExpenseFile
+  return data.currentExpenseFile;
 }
 
 export async function overwriteCurrentExpenseFile(
@@ -364,12 +379,16 @@ export async function overwriteCurrentExpenseFile(
   content: string,
   uploadedFilePath: string,
 ): Promise<void> {
-  const fileName = uploadedFilePath.split('/').pop() || 'expenses.txt'
-  const mimeType = fileName.toLowerCase().endsWith('.csv') ? 'text/csv' : 'text/plain'
-  const file = new File([content], fileName, { type: mimeType })
-  const input = await fileToUploadInput(file)
+  const fileName = uploadedFilePath.split('/').pop() || 'expenses.txt';
+  const mimeType = fileName.toLowerCase().endsWith('.csv')
+    ? 'text/csv'
+    : 'text/plain';
+  const file = new File([content], fileName, { type: mimeType });
+  const input = await fileToUploadInput(file);
 
-  await graphqlRequest<{ overwriteCurrentExpenseFile?: { uploadedFilePath: string } }>(
+  await graphqlRequest<{
+    overwriteCurrentExpenseFile?: { uploadedFilePath: string };
+  }>(
     accessToken,
     `
       mutation OverwriteCurrentExpenseFile($input: ExpenseFileUploadInput!) {
@@ -379,10 +398,13 @@ export async function overwriteCurrentExpenseFile(
       }
     `,
     { input },
-  )
+  );
 }
 
-export async function sendTestEmail(accessToken: string, recipientEmail: string): Promise<void> {
+export async function sendTestEmail(
+  accessToken: string,
+  recipientEmail: string,
+): Promise<void> {
   const data = await graphqlRequest<{ sendTestEmail?: boolean }>(
     accessToken,
     `
@@ -395,15 +417,18 @@ export async function sendTestEmail(accessToken: string, recipientEmail: string)
         recipientEmail,
       },
     },
-  )
+  );
 
   if (!data.sendTestEmail) {
-    throw new Error('Nie udało się wysłać testowego e-maila')
+    throw new Error('Nie udało się wysłać testowego e-maila');
   }
 }
 
-export async function scanReceipt(accessToken: string, file: File): Promise<ReceiptScanResult> {
-  const input = await fileToUploadInput(file)
+export async function scanReceipt(
+  accessToken: string,
+  file: File,
+): Promise<ReceiptScanResult> {
+  const input = await fileToUploadInput(file);
   const data = await graphqlRequest<{ scanReceipt?: ReceiptScanResult }>(
     accessToken,
     `
@@ -414,19 +439,22 @@ export async function scanReceipt(accessToken: string, file: File): Promise<Rece
       }
     `,
     { input },
-  )
+  );
 
   if (!data.scanReceipt) {
-    throw new Error('Nie udało się zeskanować paragonu')
+    throw new Error('Nie udało się zeskanować paragonu');
   }
 
-  return data.scanReceipt
+  return data.scanReceipt;
 }
 
-export async function approveReceiptExpenses(accessToken: string, text: string): Promise<void> {
-  const trimmedText = text.trim()
+export async function approveReceiptExpenses(
+  accessToken: string,
+  text: string,
+): Promise<void> {
+  const trimmedText = text.trim();
   if (!trimmedText) {
-    throw new Error('Treść wydatków nie może być pusta')
+    throw new Error('Treść wydatków nie może być pusta');
   }
 
   await graphqlRequest<{ approveReceiptExpenses?: boolean }>(
@@ -437,5 +465,5 @@ export async function approveReceiptExpenses(accessToken: string, text: string):
       }
     `,
     { input: { text: trimmedText } },
-  )
+  );
 }

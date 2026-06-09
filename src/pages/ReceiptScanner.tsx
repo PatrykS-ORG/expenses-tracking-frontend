@@ -1,90 +1,108 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ImagePlus, LogOut, Save, ScanSearch, Wallet } from 'lucide-react'
-import { useAuthStore } from '../store/useAuthStore'
-import { approveReceiptExpenses, scanReceipt } from '../services/onboarding.service'
-import { LanguageSwitcher } from '../components/LanguageSwitcher'
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import {
+  ArrowLeft,
+  ImagePlus,
+  LogOut,
+  Save,
+  ScanSearch,
+  Wallet,
+} from 'lucide-react';
+import { useAuthStore } from '../store/useAuthStore';
+import {
+  approveReceiptExpenses,
+  scanReceipt,
+} from '../services/onboarding.service';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
 export function ReceiptScanner() {
-  const { t } = useTranslation()
-  const navigate = useNavigate()
-  const { user, session, signOut } = useAuthStore()
-  const [selectedReceiptFile, setSelectedReceiptFile] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [extractedText, setExtractedText] = useState('')
-  const [lastScannedText, setLastScannedText] = useState('')
-  const [isScanning, setIsScanning] = useState(false)
-  const [isApproving, setIsApproving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { user, session, signOut } = useAuthStore();
+  const [selectedReceiptFile, setSelectedReceiptFile] = useState<File | null>(
+    null,
+  );
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [extractedText, setExtractedText] = useState('');
+  const [lastScannedText, setLastScannedText] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selectedReceiptFile) {
-      setPreviewUrl(null)
-      return
+      setPreviewUrl(null);
+      return;
     }
 
-    const nextPreviewUrl = URL.createObjectURL(selectedReceiptFile)
-    setPreviewUrl(nextPreviewUrl)
-    return () => URL.revokeObjectURL(nextPreviewUrl)
-  }, [selectedReceiptFile])
+    const nextPreviewUrl = URL.createObjectURL(selectedReceiptFile);
+    setPreviewUrl(nextPreviewUrl);
+    return () => URL.revokeObjectURL(nextPreviewUrl);
+  }, [selectedReceiptFile]);
 
   const hasUnsavedReceiptChanges = useMemo(
     () => extractedText.trim().length > 0 && extractedText !== lastScannedText,
     [extractedText, lastScannedText],
-  )
+  );
 
   const handleScanReceipt = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+    event.preventDefault();
     if (!session?.access_token || !selectedReceiptFile) {
-      return
+      return;
     }
 
-    setError(null)
-    setSuccess(null)
-    setIsScanning(true)
+    setError(null);
+    setSuccess(null);
+    setIsScanning(true);
     try {
       const { extractedText: nextExtractedText } = await scanReceipt(
         session.access_token,
         selectedReceiptFile,
-      )
-      setExtractedText(nextExtractedText)
-      setLastScannedText(nextExtractedText)
+      );
+      setExtractedText(nextExtractedText);
+      setLastScannedText(nextExtractedText);
       if (nextExtractedText === 'NO_EXPENSES_FOUND') {
-        setSuccess(t('receiptScanner.noExpensesFound'))
+        setSuccess(t('receiptScanner.noExpensesFound'));
       } else {
-        setSuccess(t('receiptScanner.expensesRead'))
+        setSuccess(t('receiptScanner.expensesRead'));
       }
     } catch (scanError) {
       const message =
-        scanError instanceof Error ? scanError.message : t('receiptScanner.scanError')
-      setError(message)
+        scanError instanceof Error
+          ? scanError.message
+          : t('receiptScanner.scanError');
+      setError(message);
     } finally {
-      setIsScanning(false)
+      setIsScanning(false);
     }
-  }
+  };
 
-  const handleApproveReceipt = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+  const handleApproveReceipt = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
     if (!session?.access_token) {
-      return
+      return;
     }
 
-    setError(null)
-    setSuccess(null)
-    setIsApproving(true)
+    setError(null);
+    setSuccess(null);
+    setIsApproving(true);
     try {
-      await approveReceiptExpenses(session.access_token, extractedText)
-      navigate('/')
+      await approveReceiptExpenses(session.access_token, extractedText);
+      navigate('/');
     } catch (approveError) {
       const message =
-        approveError instanceof Error ? approveError.message : t('receiptScanner.saveError')
-      setError(message)
+        approveError instanceof Error
+          ? approveError.message
+          : t('receiptScanner.saveError');
+      setError(message);
     } finally {
-      setIsApproving(false)
+      setIsApproving(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -92,7 +110,9 @@ export function ReceiptScanner() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center">
             <Wallet className="h-6 w-6 text-blue-600" />
-            <span className="ml-2 text-xl font-semibold text-gray-900">ExpenseAI</span>
+            <span className="ml-2 text-xl font-semibold text-gray-900">
+              ExpenseAI
+            </span>
           </div>
           <div className="flex items-center gap-4">
             <LanguageSwitcher />
@@ -111,8 +131,12 @@ export function ReceiptScanner() {
       <main className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">{t('receiptScanner.title')}</h1>
-            <p className="mt-1 text-sm text-gray-600">{t('receiptScanner.subtitle')}</p>
+            <h1 className="text-2xl font-semibold text-gray-900">
+              {t('receiptScanner.title')}
+            </h1>
+            <p className="mt-1 text-sm text-gray-600">
+              {t('receiptScanner.subtitle')}
+            </p>
           </div>
           <Link
             to="/"
@@ -135,20 +159,24 @@ export function ReceiptScanner() {
         )}
 
         <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900">{t('receiptScanner.step1Title')}</h2>
-          <p className="mt-1 text-sm text-gray-600">{t('receiptScanner.step1Desc')}</p>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {t('receiptScanner.step1Title')}
+          </h2>
+          <p className="mt-1 text-sm text-gray-600">
+            {t('receiptScanner.step1Desc')}
+          </p>
           <form onSubmit={handleScanReceipt} className="mt-4 space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row">
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 onChange={(event) => {
-                  const file = event.target.files?.[0] ?? null
-                  setSelectedReceiptFile(file)
-                  setExtractedText('')
-                  setLastScannedText('')
-                  setError(null)
-                  setSuccess(null)
+                  const file = event.target.files?.[0] ?? null;
+                  setSelectedReceiptFile(file);
+                  setExtractedText('');
+                  setLastScannedText('');
+                  setError(null);
+                  setSuccess(null);
                 }}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               />
@@ -158,13 +186,19 @@ export function ReceiptScanner() {
                 className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <ScanSearch className="h-4 w-4" />
-                {isScanning ? t('receiptScanner.scanning') : t('receiptScanner.scanButton')}
+                {isScanning
+                  ? t('receiptScanner.scanning')
+                  : t('receiptScanner.scanButton')}
               </button>
             </div>
 
             <div className="overflow-hidden rounded-md border border-gray-200 bg-gray-50">
               {previewUrl ? (
-                <img src={previewUrl} alt={t('receiptScanner.previewAlt')} className="max-h-[420px] w-full object-contain" />
+                <img
+                  src={previewUrl}
+                  alt={t('receiptScanner.previewAlt')}
+                  className="max-h-[420px] w-full object-contain"
+                />
               ) : (
                 <div className="flex h-44 items-center justify-center text-sm text-gray-500">
                   <span className="inline-flex items-center gap-2">
@@ -178,8 +212,12 @@ export function ReceiptScanner() {
         </section>
 
         <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900">{t('receiptScanner.step2Title')}</h2>
-          <p className="mt-1 text-sm text-gray-600">{t('receiptScanner.step2Desc')}</p>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {t('receiptScanner.step2Title')}
+          </h2>
+          <p className="mt-1 text-sm text-gray-600">
+            {t('receiptScanner.step2Desc')}
+          </p>
 
           <form onSubmit={handleApproveReceipt} className="mt-4 space-y-3">
             <textarea
@@ -190,7 +228,9 @@ export function ReceiptScanner() {
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
             />
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className={`text-xs ${hasUnsavedReceiptChanges ? 'text-amber-700' : 'text-gray-500'}`}>
+              <p
+                className={`text-xs ${hasUnsavedReceiptChanges ? 'text-amber-700' : 'text-gray-500'}`}
+              >
                 {hasUnsavedReceiptChanges
                   ? t('receiptScanner.unsavedChanges')
                   : t('receiptScanner.readyToApprove')}
@@ -208,5 +248,5 @@ export function ReceiptScanner() {
         </section>
       </main>
     </div>
-  )
+  );
 }
