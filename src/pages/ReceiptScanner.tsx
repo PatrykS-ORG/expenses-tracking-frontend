@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ImagePlus, LogOut, Save, ScanSearch, Wallet } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
 import { approveReceiptExpenses, scanReceipt } from '../services/onboarding.service'
+import { LanguageSwitcher } from '../components/LanguageSwitcher'
 
 export function ReceiptScanner() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { user, session, signOut } = useAuthStore()
   const [selectedReceiptFile, setSelectedReceiptFile] = useState<File | null>(null)
@@ -49,13 +52,13 @@ export function ReceiptScanner() {
       setExtractedText(nextExtractedText)
       setLastScannedText(nextExtractedText)
       if (nextExtractedText === 'NO_EXPENSES_FOUND') {
-        setSuccess('Nie znaleziono czytelnych wydatków. Możesz wpisać je ręcznie i zapisać.')
+        setSuccess(t('receiptScanner.noExpensesFound'))
       } else {
-        setSuccess('Wydatki zostały odczytane. Sprawdź treść i zatwierdź.')
+        setSuccess(t('receiptScanner.expensesRead'))
       }
     } catch (scanError) {
       const message =
-        scanError instanceof Error ? scanError.message : 'Nie udało się odczytać paragonu'
+        scanError instanceof Error ? scanError.message : t('receiptScanner.scanError')
       setError(message)
     } finally {
       setIsScanning(false)
@@ -76,7 +79,7 @@ export function ReceiptScanner() {
       navigate('/')
     } catch (approveError) {
       const message =
-        approveError instanceof Error ? approveError.message : 'Nie udało się zapisać wydatków'
+        approveError instanceof Error ? approveError.message : t('receiptScanner.saveError')
       setError(message)
     } finally {
       setIsApproving(false)
@@ -92,13 +95,14 @@ export function ReceiptScanner() {
             <span className="ml-2 text-xl font-semibold text-gray-900">ExpenseAI</span>
           </div>
           <div className="flex items-center gap-4">
+            <LanguageSwitcher />
             <span className="text-sm text-gray-500">{user?.email}</span>
             <button
               onClick={() => signOut()}
               className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
               <LogOut className="h-4 w-4" />
-              Wyloguj
+              {t('common.logout')}
             </button>
           </div>
         </div>
@@ -107,19 +111,15 @@ export function ReceiptScanner() {
       <main className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Skanowanie paragonu</h1>
-            <p className="mt-1 text-sm text-gray-600">
-              Prześlij zdjęcie paragonu, sprawdź podgląd wydatków i zatwierdź zapis. Dla
-              lepszego odczytu przykadruj sam paragon (bez stołu w tle) i upewnij się, że tekst
-              jest ostry i dobrze oświetlony.
-            </p>
+            <h1 className="text-2xl font-semibold text-gray-900">{t('receiptScanner.title')}</h1>
+            <p className="mt-1 text-sm text-gray-600">{t('receiptScanner.subtitle')}</p>
           </div>
           <Link
             to="/"
             className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
           >
             <ArrowLeft className="h-4 w-4" />
-            Wróć do dashboardu
+            {t('common.backToDashboardShort')}
           </Link>
         </div>
 
@@ -135,11 +135,8 @@ export function ReceiptScanner() {
         )}
 
         <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900">1. Prześlij zdjęcie paragonu</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Obsługiwane formaty: JPG, PNG, WEBP (do 2MB). Przed wysłaniem przytnij zdjęcie tak,
-            aby w kadrze był tylko paragon — mniej tła oznacza lepsze rozpoznawanie tekstu.
-          </p>
+          <h2 className="text-lg font-semibold text-gray-900">{t('receiptScanner.step1Title')}</h2>
+          <p className="mt-1 text-sm text-gray-600">{t('receiptScanner.step1Desc')}</p>
           <form onSubmit={handleScanReceipt} className="mt-4 space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row">
               <input
@@ -161,18 +158,18 @@ export function ReceiptScanner() {
                 className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <ScanSearch className="h-4 w-4" />
-                {isScanning ? 'Analizowanie...' : 'Skanuj paragon'}
+                {isScanning ? t('receiptScanner.scanning') : t('receiptScanner.scanButton')}
               </button>
             </div>
 
             <div className="overflow-hidden rounded-md border border-gray-200 bg-gray-50">
               {previewUrl ? (
-                <img src={previewUrl} alt="Podgląd paragonu" className="max-h-[420px] w-full object-contain" />
+                <img src={previewUrl} alt={t('receiptScanner.previewAlt')} className="max-h-[420px] w-full object-contain" />
               ) : (
                 <div className="flex h-44 items-center justify-center text-sm text-gray-500">
                   <span className="inline-flex items-center gap-2">
                     <ImagePlus className="h-4 w-4" />
-                    Wybierz plik, aby zobaczyć podgląd zdjęcia.
+                    {t('receiptScanner.selectFileHint')}
                   </span>
                 </div>
               )}
@@ -181,25 +178,22 @@ export function ReceiptScanner() {
         </section>
 
         <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900">2. Podgląd i edycja wydatków</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Możesz poprawić treść przed zatwierdzeniem. Po zapisaniu wydatki zostaną dopisane do
-            aktualnego pliku.
-          </p>
+          <h2 className="text-lg font-semibold text-gray-900">{t('receiptScanner.step2Title')}</h2>
+          <p className="mt-1 text-sm text-gray-600">{t('receiptScanner.step2Desc')}</p>
 
           <form onSubmit={handleApproveReceipt} className="mt-4 space-y-3">
             <textarea
               value={extractedText}
               onChange={(event) => setExtractedText(event.target.value)}
               rows={12}
-              placeholder="Po zeskanowaniu zobaczysz tutaj odczytane wydatki..."
+              placeholder={t('receiptScanner.textareaPlaceholder')}
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
             />
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className={`text-xs ${hasUnsavedReceiptChanges ? 'text-amber-700' : 'text-gray-500'}`}>
                 {hasUnsavedReceiptChanges
-                  ? 'Masz niezatwierdzone zmiany po skanowaniu.'
-                  : 'Treść gotowa do zatwierdzenia.'}
+                  ? t('receiptScanner.unsavedChanges')
+                  : t('receiptScanner.readyToApprove')}
               </p>
               <button
                 type="submit"
@@ -207,7 +201,7 @@ export function ReceiptScanner() {
                 className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Save className="h-4 w-4" />
-                {isApproving ? 'Zapisywanie...' : 'Zatwierdź i zapisz'}
+                {isApproving ? t('common.saving') : t('receiptScanner.approve')}
               </button>
             </div>
           </form>

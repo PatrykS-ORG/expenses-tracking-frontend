@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const jsonPath = join(root, 'src/data/predefinedTemplates.json')
+const jsonPath = join(root, 'src/data/predefinedTemplates.pl.json')
 
 const RESPONSIVE_STYLES = `<style type="text/css">
   #outlook a { padding: 0; }

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../store/useAuthStore'
+import { LanguageSwitcher } from '../components/LanguageSwitcher'
 import { Wallet, LogOut, CheckCircle2, Eye, Sparkles, Trash2, Mail, RefreshCw, Save, ScanSearch } from 'lucide-react'
 import { MAX_USER_TEMPLATES, type Template } from '../types/template.types'
 import {
@@ -17,8 +19,8 @@ import {
 } from '../services/onboarding.service'
 import {
   getPredefinedTemplate,
+  getPredefinedTemplates,
   isPredefinedTemplateId,
-  predefinedTemplates,
   type PredefinedTemplate,
 } from '../data/predefinedTemplates'
 import {
@@ -31,8 +33,11 @@ type SelectedTemplate =
   | { kind: 'user'; template: Template }
 
 export function Dashboard() {
+  const { t, i18n } = useTranslation()
+  const locale = i18n.resolvedLanguage ?? 'pl'
   const location = useLocation()
   const { user, session, signOut } = useAuthStore()
+  const predefinedTemplates = useMemo(() => getPredefinedTemplates(locale), [locale])
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true)
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false)
   const [isApplyingTemplate, setIsApplyingTemplate] = useState(false)
@@ -59,7 +64,7 @@ export function Dashboard() {
     if (!selectedTemplateId) {
       return null
     }
-    const predefined = getPredefinedTemplate(selectedTemplateId)
+    const predefined = getPredefinedTemplate(selectedTemplateId, locale)
     if (predefined) {
       return { kind: 'predefined', template: predefined }
     }
@@ -68,7 +73,7 @@ export function Dashboard() {
       return { kind: 'user', template: userTemplate }
     }
     return null
-  }, [selectedTemplateId, templates])
+  }, [selectedTemplateId, templates, locale])
 
   const previewHtml = useMemo(() => {
     if (!selectedTemplate) {
@@ -81,8 +86,8 @@ export function Dashboard() {
     if (!showExamplePreview) {
       return selectedTemplate.template.content
     }
-    return applyTemplatePreviewSamples(content, getExampleTemplateValues(user?.email))
-  }, [selectedTemplate, showExamplePreview, user?.email])
+    return applyTemplatePreviewSamples(content, getExampleTemplateValues(user?.email, locale))
+  }, [selectedTemplate, showExamplePreview, user?.email, locale])
 
   const isSelectedTemplateActive =
     selectedTemplate?.kind === 'user' && selectedTemplate.template.id === activeTemplateId
@@ -126,11 +131,12 @@ export function Dashboard() {
         return
       }
 
-      if (predefinedTemplates[0]) {
-        setSelectedTemplateId(predefinedTemplates[0].id)
+      const firstPredefined = getPredefinedTemplates(locale)[0]
+      if (firstPredefined) {
+        setSelectedTemplateId(firstPredefined.id)
       }
     },
-    [],
+    [locale],
   )
 
   const loadDashboardData = useCallback(
@@ -167,7 +173,7 @@ export function Dashboard() {
         const message =
           fetchError instanceof Error
             ? fetchError.message
-            : 'Nie udało się pobrać danych dashboardu'
+            : t('dashboard.fetchDashboardError')
         setError(message)
       } finally {
         if (signal?.aborted) {
@@ -177,7 +183,7 @@ export function Dashboard() {
         setIsCheckingOnboarding(false)
       }
     },
-    [resolveInitialSelection, session?.access_token, user?.email],
+    [resolveInitialSelection, session?.access_token, t, user?.email],
   )
 
   const syncCurrentExpenseFile = useCallback(async (accessToken: string) => {
@@ -215,18 +221,18 @@ export function Dashboard() {
 
     void loadCurrentExpenseFile().catch((fetchError) => {
       const message =
-        fetchError instanceof Error ? fetchError.message : 'Nie udało się pobrać treści pliku'
+        fetchError instanceof Error ? fetchError.message : t('dashboard.fetchFileError')
       setError(message)
     })
-  }, [loadCurrentExpenseFile, session?.access_token, uploadedFilePath])
+  }, [loadCurrentExpenseFile, session?.access_token, t, uploadedFilePath])
 
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     if (params.get('setup') === 'upload') {
       setDataSourceType('FILE_UPLOAD')
-      setSuccess('Gotowe! Teraz prześlij plik z wydatkami, aby dokończyć konfigurację.')
+      setSuccess(t('dashboard.setupUploadSuccess'))
     }
-  }, [location.search])
+  }, [location.search, t])
 
   const handleUseTemplate = async () => {
     if (!session?.access_token || !selectedTemplate) {
@@ -246,21 +252,21 @@ export function Dashboard() {
         )
         await setActiveTemplateRequest(session.access_token, created.id)
         await loadDashboardData(created.id)
-        setSuccess('Szablon został dodany i ustawiony jako aktywny.')
+        setSuccess(t('dashboard.templateAddedActive'))
         return
       }
 
       if (selectedTemplate.template.id === activeTemplateId) {
-        setSuccess('Ten szablon jest już aktywny.')
+        setSuccess(t('dashboard.alreadyActive'))
         return
       }
 
       await setActiveTemplateRequest(session.access_token, selectedTemplate.template.id)
       await loadDashboardData(selectedTemplate.template.id)
-      setSuccess('Ustawiono aktywny szablon.')
+      setSuccess(t('dashboard.activeTemplateSet'))
     } catch (applyError) {
       const message =
-        applyError instanceof Error ? applyError.message : 'Nie udało się zastosować szablonu'
+        applyError instanceof Error ? applyError.message : t('dashboard.applyTemplateError')
       setError(message)
     } finally {
       setIsApplyingTemplate(false)
@@ -272,7 +278,7 @@ export function Dashboard() {
       return
     }
 
-    const shouldDelete = window.confirm(`Usunąć szablon "${template.name}"?`)
+    const shouldDelete = window.confirm(t('dashboard.deleteConfirm', { name: template.name }))
     if (!shouldDelete) {
       return
     }
@@ -282,10 +288,10 @@ export function Dashboard() {
     try {
       await deleteTemplateRequest(session.access_token, template.id)
       await loadDashboardData()
-      setSuccess('Szablon został usunięty.')
+      setSuccess(t('dashboard.templateDeleted'))
     } catch (deleteError) {
       const message =
-        deleteError instanceof Error ? deleteError.message : 'Nie udało się usunąć szablonu'
+        deleteError instanceof Error ? deleteError.message : t('dashboard.deleteTemplateError')
       setError(message)
     }
   }
@@ -302,12 +308,12 @@ export function Dashboard() {
     try {
       await updateDataSource(session.access_token, 'NEXTCLOUD', nextcloudFilePath)
       await loadDashboardData(selectedTemplateId)
-      setSuccess('Ustawiono Nextcloud jako źródło danych.')
+      setSuccess(t('dashboard.nextcloudSaved'))
     } catch (savePathError) {
       const message =
         savePathError instanceof Error
           ? savePathError.message
-          : 'Nie udało się zapisać ustawień źródła danych'
+          : t('dashboard.dataSourceSaveError')
       setError(message)
     } finally {
       setIsSavingPath(false)
@@ -327,10 +333,10 @@ export function Dashboard() {
       try {
         await updateDataSource(session.access_token, 'FILE_UPLOAD')
         await loadDashboardData(selectedTemplateId)
-        setSuccess('Przełączono na przesłany plik jako źródło danych.')
+        setSuccess(t('dashboard.switchedToUpload'))
       } catch (switchError) {
         const message =
-          switchError instanceof Error ? switchError.message : 'Nie udało się zmienić źródła danych'
+          switchError instanceof Error ? switchError.message : t('dashboard.dataSourceSwitchError')
         setError(message)
       }
     }
@@ -351,10 +357,10 @@ export function Dashboard() {
       await loadDashboardData(selectedTemplateId)
       await syncCurrentExpenseFile(session.access_token)
       setDataSourceType('FILE_UPLOAD')
-      setSuccess('Plik został przesłany i ustawiony jako źródło danych.')
+      setSuccess(t('dashboard.fileUploaded'))
     } catch (uploadError) {
       const message =
-        uploadError instanceof Error ? uploadError.message : 'Nie udało się przesłać pliku'
+        uploadError instanceof Error ? uploadError.message : t('dashboard.uploadError')
       setError(message)
     } finally {
       setIsUploadingExpenseFile(false)
@@ -366,10 +372,10 @@ export function Dashboard() {
     setSuccess(null)
     try {
       await loadCurrentExpenseFile()
-      setSuccess('Odświeżono aktualną treść pliku.')
+      setSuccess(t('dashboard.fileRefreshed'))
     } catch (refreshError) {
       const message =
-        refreshError instanceof Error ? refreshError.message : 'Nie udało się odświeżyć pliku'
+        refreshError instanceof Error ? refreshError.message : t('dashboard.refreshError')
       setError(message)
     }
   }
@@ -391,10 +397,10 @@ export function Dashboard() {
       )
       await loadDashboardData(selectedTemplateId)
       await syncCurrentExpenseFile(session.access_token)
-      setSuccess('Zapisano zmiany w pliku wydatków.')
+      setSuccess(t('dashboard.expenseFileSaved'))
     } catch (saveFileError) {
       const message =
-        saveFileError instanceof Error ? saveFileError.message : 'Nie udało się zapisać zmian'
+        saveFileError instanceof Error ? saveFileError.message : t('dashboard.saveFileError')
       setError(message)
     } finally {
       setIsSavingCurrentExpenseFile(false)
@@ -412,12 +418,12 @@ export function Dashboard() {
     setIsSendingTestEmail(true)
     try {
       await sendTestEmailRequest(session.access_token, testEmailRecipient)
-      setSuccess(`Wysłano testową wiadomość na adres ${testEmailRecipient.trim()}.`)
+      setSuccess(t('dashboard.testEmailSent', { email: testEmailRecipient.trim() }))
     } catch (sendError) {
       const message =
         sendError instanceof Error
           ? sendError.message
-          : 'Nie udało się wysłać testowej wiadomości'
+          : t('dashboard.testEmailError')
       setError(message)
     } finally {
       setIsSendingTestEmail(false)
@@ -442,13 +448,14 @@ export function Dashboard() {
               <span className="ml-2 text-xl font-semibold text-gray-900">ExpenseAI</span>
             </div>
             <div className="flex items-center gap-4">
+              <LanguageSwitcher />
               <span className="text-sm text-gray-500">{user?.email}</span>
               <button
                 onClick={() => signOut()}
                 className="inline-flex items-center gap-2 px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
               >
                 <LogOut className="h-4 w-4" />
-                Wyloguj
+                {t('common.logout')}
               </button>
             </div>
           </div>
@@ -471,9 +478,9 @@ export function Dashboard() {
           <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Źródło danych wydatków</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{t('dashboard.dataSourceTitle')}</h2>
                 <p className="mt-1 text-sm text-gray-600">
-                  Wybierz najprostszy wariant: prześlij plik bezpośrednio lub podłącz Nextcloud.
+                  {t('dashboard.dataSourceDesc')}
                 </p>
               </div>
               <Link
@@ -481,7 +488,7 @@ export function Dashboard() {
                 className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
               >
                 <ScanSearch className="h-4 w-4" />
-                Skanuj paragon
+                {t('dashboard.scanReceipt')}
               </Link>
             </div>
             <div className="mt-4 inline-flex rounded-md border border-gray-200 bg-gray-50 p-1">
@@ -494,7 +501,7 @@ export function Dashboard() {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                Prześlij plik
+                {t('dashboard.uploadFile')}
               </button>
               <button
                 type="button"
@@ -523,18 +530,18 @@ export function Dashboard() {
                     disabled={isUploadingExpenseFile || !selectedExpenseFile}
                     className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isUploadingExpenseFile ? 'Przesyłanie...' : 'Prześlij'}
+                    {isUploadingExpenseFile ? t('common.uploading') : t('common.upload')}
                   </button>
                 </form>
                 {uploadedFilePath ? (
                   <div className="space-y-3">
                     <p className="text-xs text-gray-600">
-                      Aktualny plik: <span className="font-medium">{uploadedFilePath}</span>
+                      {t('dashboard.currentFile')} <span className="font-medium">{uploadedFilePath}</span>
                     </p>
                     <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <p className="text-xs font-medium text-gray-700">
-                          Podgląd i edycja bieżącego pliku
+                          {t('dashboard.filePreviewTitle')}
                         </p>
                         <button
                           type="button"
@@ -543,11 +550,11 @@ export function Dashboard() {
                           className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <RefreshCw className="h-3.5 w-3.5" />
-                          Odśwież
+                          {t('common.refresh')}
                         </button>
                       </div>
                       {isLoadingCurrentExpenseFile ? (
-                        <p className="text-xs text-gray-500">Ładowanie zawartości pliku...</p>
+                        <p className="text-xs text-gray-500">{t('dashboard.loadingFile')}</p>
                       ) : (
                         <form onSubmit={handleSaveExpenseFile} className="space-y-2">
                           <textarea
@@ -563,8 +570,8 @@ export function Dashboard() {
                               }`}
                             >
                               {hasUnsavedExpenseFileChanges
-                                ? 'Masz niezapisane zmiany.'
-                                : 'Treść pliku jest zapisana.'}
+                                ? t('dashboard.unsavedFileChanges')
+                                : t('dashboard.fileSaved')}
                             </p>
                             <button
                               type="submit"
@@ -576,7 +583,7 @@ export function Dashboard() {
                               className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               <Save className="h-3.5 w-3.5" />
-                              {isSavingCurrentExpenseFile ? 'Zapisywanie...' : 'Zapisz zmiany'}
+                              {isSavingCurrentExpenseFile ? t('common.saving') : t('dashboard.saveChanges')}
                             </button>
                           </div>
                         </form>
@@ -585,7 +592,7 @@ export function Dashboard() {
                   </div>
                 ) : (
                   <p className="text-xs text-amber-700">
-                    Nie masz jeszcze przesłanego pliku. Dodaj plik .txt lub .csv.
+                    {t('dashboard.noUploadedFile')}
                   </p>
                 )}
               </div>
@@ -602,23 +609,23 @@ export function Dashboard() {
                   disabled={isSavingPath}
                   className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isSavingPath ? 'Zapisywanie...' : 'Zapisz'}
+                  {isSavingPath ? t('common.saving') : t('common.save')}
                 </button>
               </form>
             )}
           </section>
 
           <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">Testowy e-mail</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('dashboard.testEmailTitle')}</h2>
             <p className="mt-1 text-sm text-gray-600">
-              System wysyła aktywny szablon z przykładowymi danymi wydatków na wskazany adres.
+              {t('dashboard.testEmailDesc')}
             </p>
             <form onSubmit={handleSendTestEmail} className="mt-4 flex flex-col gap-3 sm:flex-row">
               <input
                 type="email"
                 value={testEmailRecipient}
                 onChange={(event) => setTestEmailRecipient(event.target.value)}
-                placeholder="twoj-adres@email.com"
+                placeholder={t('dashboard.emailPlaceholder')}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               />
               <button
@@ -627,12 +634,12 @@ export function Dashboard() {
                 className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Mail className="h-4 w-4" />
-                {isSendingTestEmail ? 'Wysyłanie...' : 'Wyślij'}
+                {isSendingTestEmail ? t('common.sending') : t('common.send')}
               </button>
             </form>
             {!activeTemplateId && (
               <p className="mt-2 text-xs text-amber-700">
-                Ustaw aktywny szablon, aby wysłać testową wiadomość.
+                {t('dashboard.noActiveTemplate')}
               </p>
             )}
           </section>
@@ -640,17 +647,16 @@ export function Dashboard() {
           <div className="grid gap-6 lg:grid-cols-3">
             <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm lg:col-span-1">
               <div className="mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Twoje szablony</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{t('dashboard.templatesTitle')}</h2>
                 <p className="mt-1 text-xs text-gray-500">
-                  Wybierz szablon z listy, zobacz podgląd i ustaw go jako aktywny.
+                  {t('dashboard.templatesDesc')}
                 </p>
                 <p className="mt-1 text-xs text-gray-500">
-                  {templates.length}/{MAX_USER_TEMPLATES} własnych szablonów
+                  {t('dashboard.userTemplatesCount', { count: templates.length, max: MAX_USER_TEMPLATES })}
                 </p>
                 {hasReachedTemplateLimit && (
                   <p className="mt-2 text-xs text-amber-700">
-                    Osiągnięto limit {MAX_USER_TEMPLATES} szablonów. Usuń istniejący szablon, aby dodać
-                    nowy.
+                    {t('dashboard.templateLimitReached', { max: MAX_USER_TEMPLATES })}
                   </p>
                 )}
               </div>
@@ -658,7 +664,7 @@ export function Dashboard() {
               <div className="mb-4">
                 <h3 className="mb-2 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-purple-700">
                   <Sparkles className="h-3.5 w-3.5" />
-                  Predefiniowane
+                  {t('dashboard.predefined')}
                 </h3>
                 <div className="space-y-2">
                   {predefinedTemplates.map((template) => (
@@ -685,15 +691,15 @@ export function Dashboard() {
 
               <div>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Moje szablony
+                  {t('dashboard.myTemplates')}
                 </h3>
                 {isLoadingDashboard ? (
-                  <p className="text-sm text-gray-500">Ładowanie szablonów...</p>
+                  <p className="text-sm text-gray-500">{t('dashboard.loadingTemplates')}</p>
                 ) : templates.length === 0 ? (
                   <p className="text-xs text-gray-500">
-                    Brak własnych szablonów. Wybierz gotowy szablon lub{' '}
+                    {t('dashboard.noUserTemplates')}{' '}
                     <Link to="/onboarding" className="text-blue-600 underline hover:text-blue-800">
-                      wygeneruj nowy
+                      {t('dashboard.generateNew')}
                     </Link>
                     .
                   </p>
@@ -717,7 +723,7 @@ export function Dashboard() {
                           {activeTemplateId === template.id && (
                             <p className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-700">
                               <CheckCircle2 className="h-3.5 w-3.5" />
-                              Aktywny
+                              {t('common.active')}
                             </p>
                           )}
                         </button>
@@ -729,7 +735,7 @@ export function Dashboard() {
                           >
                             <span className="inline-flex items-center gap-1">
                               <Trash2 className="h-3.5 w-3.5" />
-                              Usuń
+                              {t('common.delete')}
                             </span>
                           </button>
                         </div>
@@ -742,7 +748,7 @@ export function Dashboard() {
               <div className="mt-4 border-t border-gray-100 pt-4">
                 {hasReachedTemplateLimit ? (
                   <p className="text-center text-xs text-amber-700">
-                    Usuń istniejący szablon, aby wygenerować nowy.
+                    {t('dashboard.deleteTemplateToGenerate')}
                   </p>
                 ) : (
                   <Link
@@ -750,7 +756,7 @@ export function Dashboard() {
                     className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
                   >
                     <Sparkles className="h-4 w-4" />
-                    Wygeneruj nowy szablon
+                    {t('dashboard.generateNewTemplate')}
                   </Link>
                 )}
               </div>
@@ -759,12 +765,12 @@ export function Dashboard() {
             <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm lg:col-span-2">
               <div className="mb-4 flex items-center gap-2">
                 <Eye className="h-4 w-4 text-blue-600" />
-                <h2 className="text-lg font-semibold text-gray-900">Podgląd szablonu</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{t('dashboard.previewTitle')}</h2>
               </div>
 
               {!selectedTemplate ? (
                 <div className="flex h-64 items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-500">
-                  Wybierz szablon z listy po lewej stronie.
+                  {t('dashboard.selectTemplateHint')}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -780,21 +786,21 @@ export function Dashboard() {
                     {isSelectedTemplateActive && (
                       <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
                         <CheckCircle2 className="h-3.5 w-3.5" />
-                        Ten szablon jest aktywny — będzie używany przy comiesięcznym podsumowaniu
+                        {t('dashboard.activeTemplateNote')}
                       </p>
                     )}
                   </div>
 
                   <div>
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-sm font-medium text-gray-700">Jak będzie wyglądał e-mail</p>
+                      <p className="text-sm font-medium text-gray-700">{t('dashboard.emailPreviewLabel')}</p>
                       <label className="inline-flex cursor-pointer items-center gap-2.5">
-                        <span className="text-sm text-gray-600">Przykładowe dane</span>
+                        <span className="text-sm text-gray-600">{t('dashboard.exampleData')}</span>
                         <button
                           type="button"
                           role="switch"
                           aria-checked={showExamplePreview}
-                          aria-label="Pokaż przykładowe dane w podglądzie szablonu"
+                          aria-label={t('dashboard.exampleDataAria')}
                           onClick={() => setShowExamplePreview((current) => !current)}
                           className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                             showExamplePreview ? 'bg-blue-600' : 'bg-gray-300'
@@ -810,14 +816,14 @@ export function Dashboard() {
                     </div>
                     {showExamplePreview && (
                       <p className="mb-2 text-xs text-gray-500">
-                        Podgląd z przykładowymi danymi — tak mniej więcej zobaczysz wiadomość w skrzynce.
+                        {t('dashboard.exampleDataHint')}
                       </p>
                     )}
                     <div className="overflow-hidden rounded-md border border-gray-300">
                       <iframe
                         title="Template HTML preview"
                         srcDoc={previewHtml}
-                        className="h-[min(520px,75vh)] w-full bg-white"
+                        className="h-[min(920px,75vh)] w-full bg-white"
                         sandbox="allow-same-origin"
                       />
                     </div>
@@ -831,17 +837,14 @@ export function Dashboard() {
                       className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isApplyingTemplate
-                        ? 'Zastosowywanie...'
-                        : selectedTemplate.kind === 'predefined'
-                          ? 'Użyj tego szablonu'
-                          : isSelectedTemplateActive
-                            ? 'Szablon aktywny'
-                            : 'Użyj tego szablonu'}
+                        ? t('dashboard.applying')
+                        : isSelectedTemplateActive
+                          ? t('dashboard.templateActive')
+                          : t('dashboard.useTemplate')}
                     </button>
                     {cannotAddSelectedTemplate && (
                       <p className="text-xs text-amber-700">
-                        Osiągnięto limit {MAX_USER_TEMPLATES} szablonów. Usuń istniejący szablon, aby dodać
-                        ten gotowy szablon.
+                        {t('dashboard.predefinedLimitHint', { max: MAX_USER_TEMPLATES })}
                       </p>
                     )}
                     {!hasReachedTemplateLimit && (
@@ -849,7 +852,7 @@ export function Dashboard() {
                         to="/onboarding"
                         className="text-sm text-blue-600 underline hover:text-blue-800"
                       >
-                        Wygeneruj inny przez AI
+                        {t('dashboard.generateOtherAi')}
                       </Link>
                     )}
                   </div>
