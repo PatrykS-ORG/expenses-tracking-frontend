@@ -69,13 +69,13 @@ export function Auth() {
         <LanguageSwitcher />
       </div>
 
-      <div className="flex min-h-screen flex-col lg:flex-row">
+      <div className="flex min-h-screen flex-col lg:flex-row lg:items-stretch">
         <section className="relative flex flex-col justify-between overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 px-6 py-10 text-white sm:px-10 lg:w-1/2 lg:px-12 lg:py-12">
           <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-20 -left-10 h-72 w-72 rounded-full bg-blue-400/20 blur-3xl" />
 
           <div className="relative">
-            <SpendwellLogo size="lg" variant="light" />
+            <SpendwellLogo size="xl" inheritBackground />
             <p className="mt-6 max-w-md text-lg leading-relaxed text-blue-100 sm:text-xl">
               {t('auth.tagline')}
             </p>
@@ -95,13 +95,13 @@ export function Auth() {
           </ul>
         </section>
 
-        <section className="flex flex-1 items-center justify-center px-4 py-10 sm:px-6 lg:px-10">
-          <div className="w-full max-w-md">
-            <div className="mb-8 flex justify-center lg:hidden">
-              <SpendwellLogo size="md" />
+        <section className="flex min-h-0 flex-1 items-center justify-center px-4 py-10 sm:px-6 lg:min-h-screen lg:px-10 lg:py-0">
+          <div className="flex w-full max-w-md flex-col items-center">
+            <div className="mb-8">
+              <SpendwellLogo size="xl" />
             </div>
 
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-8 shadow-xl shadow-slate-200/60">
+            <div className="w-full rounded-2xl border border-slate-200/80 bg-white p-8 shadow-xl shadow-slate-200/60">
               <div className="mb-8 text-center lg:text-left">
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900">
                   {isSignUp ? t('auth.signUp') : t('auth.signIn')}

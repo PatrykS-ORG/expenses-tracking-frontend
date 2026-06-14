@@ -3,9 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/useAuthStore';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
-import { APP_NAME } from '../lib/constants';
+import { SpendwellLogo } from '../components/SpendwellLogo';
 import {
-  Wallet,
   LogOut,
   CheckCircle2,
   Eye,
@@ -517,10 +516,7 @@ export function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <Wallet className="h-6 w-6 text-blue-600" />
-              <span className="ml-2 text-xl font-semibold text-gray-900">
-                {APP_NAME}
-              </span>
+              <SpendwellLogo size="md" inheritBackground={true} />
             </div>
             <div className="flex items-center gap-4">
               <LanguageSwitcher />

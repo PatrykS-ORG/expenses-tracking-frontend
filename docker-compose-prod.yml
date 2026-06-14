@@ -1,0 +1,24 @@
+services:
+  expenses-tracking-frontend:
+    image: expenses-tracking-frontend:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_VERSION: ${TAG:-latest}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        VITE_API_URL: ${VITE_API_URL}
+    container_name: expenses-frontend
+    restart: always
+    ports:
+      - '4173:80'
+    environment:
+      APP_VERSION: ${TAG:-latest}
+    networks:
+      - homelab_net
+
+networks:
+  homelab_net:
+    external: true
+    name: homelab_shared_network
