@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Save,
   ScanSearch,
+  CalendarClock,
 } from 'lucide-react';
 import { MAX_USER_TEMPLATES, type Template } from '../types/template.types';
 import {
@@ -24,6 +25,8 @@ import {
   overwriteCurrentExpenseFile,
   sendTestEmail as sendTestEmailRequest,
   setActiveTemplate as setActiveTemplateRequest,
+  getSummarySchedule,
+  updateSummarySchedule,
   updateDataSource,
   uploadExpenseFile,
   type DataSourceType,
@@ -42,6 +45,13 @@ import {
 type SelectedTemplate =
   | { kind: 'predefined'; template: PredefinedTemplate }
   | { kind: 'user'; template: Template };
+
+const SUMMARY_TIMEZONE_OPTIONS = [
+  'Europe/Warsaw',
+  'Europe/London',
+  'Europe/Berlin',
+  'UTC',
+];
 
 export function Dashboard() {
   const { t, i18n } = useTranslation();
@@ -80,6 +90,17 @@ export function Dashboard() {
   );
   const [testEmailRecipient, setTestEmailRecipient] = useState('');
   const [showExamplePreview, setShowExamplePreview] = useState(true);
+  const [summaryEnabled, setSummaryEnabled] = useState(false);
+  const [summaryScheduleDay, setSummaryScheduleDay] = useState(1);
+  const [summaryScheduleHour, setSummaryScheduleHour] = useState(8);
+  const [summaryTimezone, setSummaryTimezone] = useState(
+    Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Warsaw',
+  );
+  const [summaryEmailLanguage, setSummaryEmailLanguage] = useState<'PL' | 'EN'>(
+    locale.startsWith('en') ? 'EN' : 'PL',
+  );
+  const [nextSummaryAt, setNextSummaryAt] = useState<string | null>(null);
+  const [isSavingSummarySchedule, setIsSavingSummarySchedule] = useState(false);
 
   const selectedTemplate = useMemo((): SelectedTemplate | null => {
     if (!selectedTemplateId) {
@@ -123,6 +144,22 @@ export function Dashboard() {
     selectedTemplate?.kind === 'predefined' && hasReachedTemplateLimit;
   const hasUnsavedExpenseFileChanges =
     expenseFileContent !== savedExpenseFileContent;
+  const summaryTimezoneOptions = useMemo(() => {
+    const options = new Set(SUMMARY_TIMEZONE_OPTIONS);
+    if (summaryTimezone) {
+      options.add(summaryTimezone);
+    }
+    return Array.from(options);
+  }, [summaryTimezone]);
+  const formattedNextSummaryAt = useMemo(() => {
+    if (!nextSummaryAt) {
+      return null;
+    }
+    return new Date(nextSummaryAt).toLocaleString(locale);
+  }, [locale, nextSummaryAt]);
+  const canEnableSummarySchedule = Boolean(
+    activeTemplateId && (uploadedFilePath || nextcloudFilePath.trim()),
+  );
 
   const selectPredefinedTemplate = useCallback(
     (template: PredefinedTemplate) => {
@@ -206,6 +243,14 @@ export function Dashboard() {
           preferredTemplateId,
           dashboardData.activeTemplateId,
         );
+
+        const schedule = await getSummarySchedule(session.access_token);
+        setSummaryEnabled(schedule.enabled);
+        setSummaryScheduleDay(schedule.scheduleDay);
+        setSummaryScheduleHour(schedule.scheduleHour);
+        setSummaryTimezone(schedule.timezone);
+        setSummaryEmailLanguage(schedule.emailLanguage);
+        setNextSummaryAt(schedule.nextSummaryAt);
       } catch (fetchError) {
         if (signal?.aborted) {
           return;
@@ -502,6 +547,44 @@ export function Dashboard() {
     }
   };
 
+  const handleSaveSummarySchedule = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    if (!session?.access_token) {
+      return;
+    }
+
+    setError(null);
+    setSuccess(null);
+    setIsSavingSummarySchedule(true);
+    try {
+      const schedule = await updateSummarySchedule(session.access_token, {
+        enabled: summaryEnabled,
+        scheduleDay: summaryScheduleDay,
+        scheduleHour: summaryScheduleHour,
+        timezone: summaryTimezone,
+        emailLanguage: summaryEmailLanguage,
+        nextSummaryAt,
+      });
+      setSummaryEnabled(schedule.enabled);
+      setSummaryScheduleDay(schedule.scheduleDay);
+      setSummaryScheduleHour(schedule.scheduleHour);
+      setSummaryTimezone(schedule.timezone);
+      setSummaryEmailLanguage(schedule.emailLanguage);
+      setNextSummaryAt(schedule.nextSummaryAt);
+      setSuccess(t('dashboard.summaryScheduleSaved'));
+    } catch (saveScheduleError) {
+      const message =
+        saveScheduleError instanceof Error
+          ? saveScheduleError.message
+          : t('dashboard.summaryScheduleError');
+      setError(message);
+    } finally {
+      setIsSavingSummarySchedule(false);
+    }
+  };
+
   if (isCheckingOnboarding) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -711,6 +794,122 @@ export function Dashboard() {
                 </button>
               </form>
             )}
+          </section>
+
+          <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <CalendarClock className="h-5 w-5" />
+              {t('dashboard.summaryScheduleTitle')}
+            </h2>
+            <p className="mt-1 text-sm text-gray-600">
+              {t('dashboard.summaryScheduleDesc')}
+            </p>
+            <form
+              onSubmit={handleSaveSummarySchedule}
+              className="mt-4 space-y-4"
+            >
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={summaryEnabled}
+                  onChange={(event) => setSummaryEnabled(event.target.checked)}
+                  disabled={!canEnableSummarySchedule}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                {t('dashboard.summaryEnabledLabel')}
+              </label>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <label className="block text-sm text-gray-700">
+                  <span className="mb-1 block">
+                    {t('dashboard.summaryDayLabel')}
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={28}
+                    value={summaryScheduleDay}
+                    onChange={(event) =>
+                      setSummaryScheduleDay(Number(event.target.value))
+                    }
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
+                <label className="block text-sm text-gray-700">
+                  <span className="mb-1 block">
+                    {t('dashboard.summaryHourLabel')}
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={23}
+                    value={summaryScheduleHour}
+                    onChange={(event) =>
+                      setSummaryScheduleHour(Number(event.target.value))
+                    }
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
+                <label className="block text-sm text-gray-700">
+                  <span className="mb-1 block">
+                    {t('dashboard.summaryTimezoneLabel')}
+                  </span>
+                  <select
+                    value={summaryTimezone}
+                    onChange={(event) => setSummaryTimezone(event.target.value)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  >
+                    {summaryTimezoneOptions.map((timezone) => (
+                      <option key={timezone} value={timezone}>
+                        {timezone}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm text-gray-700">
+                  <span className="mb-1 block">
+                    {t('dashboard.summaryEmailLanguageLabel')}
+                  </span>
+                  <select
+                    value={summaryEmailLanguage}
+                    onChange={(event) =>
+                      setSummaryEmailLanguage(event.target.value as 'PL' | 'EN')
+                    }
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  >
+                    <option value="PL">
+                      {t('dashboard.summaryLanguagePol')}
+                    </option>
+                    <option value="EN">
+                      {t('dashboard.summaryLanguageEng')}
+                    </option>
+                  </select>
+                </label>
+              </div>
+
+              {formattedNextSummaryAt && (
+                <p className="text-xs text-gray-500">
+                  {t('dashboard.summaryNextSendLabel')}:{' '}
+                  {formattedNextSummaryAt}
+                </p>
+              )}
+
+              {!canEnableSummarySchedule && (
+                <p className="text-xs text-amber-700">
+                  {t('dashboard.summaryRequirementsHint')}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSavingSummarySchedule}
+                className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSavingSummarySchedule
+                  ? t('common.saving')
+                  : t('common.save')}
+              </button>
+            </form>
           </section>
 
           <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
