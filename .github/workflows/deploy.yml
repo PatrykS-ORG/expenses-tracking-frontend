@@ -1,0 +1,32 @@
+name: Deploy to Homelab expenses-tracking-frontend
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  deploy:
+    name: Deploy Application
+    runs-on: self-hosted
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        run: echo "VERSION=$(echo ${{ github.ref }} | sed -e 's|refs/tags/||')" >> $GITHUB_ENV
+
+      - name: Sanitize PATH for self-hosted runner
+        run: |
+          CLEAN_PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '^/root/' | paste -sd: -)
+          echo "PATH=$CLEAN_PATH" >> "$GITHUB_ENV"
+
+      - name: Build and restart Docker containers
+        run: |
+          TAG=${{ env.VERSION }} docker compose -f docker-compose-prod.yml up -d --build --remove-orphans
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}

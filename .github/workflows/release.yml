@@ -1,0 +1,33 @@
+name: Create Release Tag
+
+on:
+  push:
+    branches:
+      - production
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    name: Create Git Tag
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.OWNER_AUTH_TOKEN }}
+
+      - name: Bump version and push tag
+        id: tag_version
+        uses: anothrNick/github-tag-action@1.67.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.OWNER_AUTH_TOKEN }}
+          WITH_V: true
+          DEFAULT_BUMP: patch
+
+      - name: Print new tag
+        run: |
+          echo "New tag created: ${{ steps.tag_version.outputs.new_tag }}"
