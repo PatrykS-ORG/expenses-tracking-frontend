@@ -74,6 +74,8 @@ Page-level local state is used in `Dashboard` for:
 - `setActiveTemplate`
 - `updateDataSource`
 - `sendTestEmail`
+- `mySummarySchedule`
+- `updateSummarySchedule`
 - `approveReceiptExpenses`
 - `uploadExpenseFile`
 - `currentExpenseFile`
@@ -96,6 +98,7 @@ All backend calls go through this endpoint. File uploads use base64-encoded muta
   - Upload file (`.txt`, `.csv`)
   - Preview/edit current uploaded file content and save overwrite
   - Nextcloud path,
+- automatic summary schedule settings (day, hour, timezone, enable/disable),
 - test-email trigger,
 - link to receipt scanner (`/receipt-scan`).
 
