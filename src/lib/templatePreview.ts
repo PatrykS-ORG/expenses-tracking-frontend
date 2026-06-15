@@ -119,20 +119,25 @@ function buildExpensesListHtml(
 </table>`;
 }
 
-function displayNameFromEmail(email: string | null | undefined): string {
+function displayNameFromEmail(
+  email: string | null | undefined,
+  locale?: string,
+): string {
+  const fallback =
+    resolveLocale(locale) === 'en' ? 'Jane Smith' : 'Anna Kowalska';
   if (!email) {
-    return 'Anna Kowalska';
+    return fallback;
   }
   const localPart = email.split('@')[0]?.trim();
   if (!localPart) {
-    return 'Anna Kowalska';
+    return fallback;
   }
   const words = localPart
     .replace(/[._-]+/g, ' ')
     .split(/\s+/)
     .filter(Boolean);
   if (words.length === 0) {
-    return 'Anna Kowalska';
+    return fallback;
   }
   return words
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
@@ -160,7 +165,7 @@ export function getExampleTemplateValues(
       : `Wypłata wyniosła ${salaryFormatted}, wydatki ${totalExpensesFormatted} — na koncie miesiąca zostało ${remainingFormatted}. Największy udział w budżecie miały zakupy spożywcze i paliwo.`;
 
   return {
-    userName: displayNameFromEmail(userEmail),
+    userName: displayNameFromEmail(userEmail, locale),
     currentMonth,
     salaryAmount: salaryFormatted,
     totalExpenses: totalExpensesFormatted,

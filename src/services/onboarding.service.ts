@@ -27,6 +27,17 @@ export interface DashboardData {
   uploadedFilePath: string | null;
 }
 
+export type SummaryEmailLanguage = 'PL' | 'EN';
+
+export interface SummaryScheduleSettings {
+  enabled: boolean;
+  scheduleDay: number;
+  scheduleHour: number;
+  timezone: string;
+  emailLanguage: SummaryEmailLanguage;
+  nextSummaryAt: string | null;
+}
+
 export interface CurrentExpenseFile {
   dataSourceType: 'FILE_UPLOAD';
   uploadedFilePath: string;
@@ -422,6 +433,72 @@ export async function sendTestEmail(
   if (!data.sendTestEmail) {
     throw new Error('Nie udało się wysłać testowego e-maila');
   }
+}
+
+export async function getSummarySchedule(
+  accessToken: string,
+): Promise<SummaryScheduleSettings> {
+  const data = await graphqlRequest<{
+    mySummarySchedule?: SummaryScheduleSettings;
+  }>(
+    accessToken,
+    `
+      query MySummarySchedule {
+        mySummarySchedule {
+          enabled
+          scheduleDay
+          scheduleHour
+          timezone
+          emailLanguage
+          nextSummaryAt
+        }
+      }
+    `,
+  );
+
+  if (!data.mySummarySchedule) {
+    throw new Error('Nie udało się pobrać harmonogramu podsumowań');
+  }
+
+  return data.mySummarySchedule;
+}
+
+export async function updateSummarySchedule(
+  accessToken: string,
+  input: SummaryScheduleSettings,
+): Promise<SummaryScheduleSettings> {
+  const data = await graphqlRequest<{
+    updateSummarySchedule?: SummaryScheduleSettings;
+  }>(
+    accessToken,
+    `
+      mutation UpdateSummarySchedule($input: UpdateSummaryScheduleInput!) {
+        updateSummarySchedule(input: $input) {
+          enabled
+          scheduleDay
+          scheduleHour
+          timezone
+          emailLanguage
+          nextSummaryAt
+        }
+      }
+    `,
+    {
+      input: {
+        enabled: input.enabled,
+        scheduleDay: input.scheduleDay,
+        scheduleHour: input.scheduleHour,
+        timezone: input.timezone,
+        emailLanguage: input.emailLanguage,
+      },
+    },
+  );
+
+  if (!data.updateSummarySchedule) {
+    throw new Error('Nie udało się zapisać harmonogramu podsumowań');
+  }
+
+  return data.updateSummarySchedule;
 }
 
 export async function scanReceipt(
