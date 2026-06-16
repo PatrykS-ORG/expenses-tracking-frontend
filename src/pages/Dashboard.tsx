@@ -41,6 +41,7 @@ import {
   applyTemplatePreviewSamples,
   getExampleTemplateValues,
 } from '../lib/templatePreview';
+import { featureFlags } from '../lib/featureFlags';
 
 type SelectedTemplate =
   | { kind: 'predefined'; template: PredefinedTemplate }
@@ -233,10 +234,6 @@ export function Dashboard() {
         setNextcloudFilePath(dashboardData.nextcloudFilePath ?? '');
         const currentUploadedFilePath = dashboardData.uploadedFilePath ?? null;
         setUploadedFilePath(currentUploadedFilePath);
-        if (!currentUploadedFilePath) {
-          setExpenseFileContent('');
-          setSavedExpenseFileContent('');
-        }
         setTestEmailRecipient((current) => current || user?.email || '');
         resolveInitialSelection(
           dashboardData.templates,
@@ -426,6 +423,10 @@ export function Dashboard() {
       return;
     }
 
+    if (type === 'NEXTCLOUD' && !featureFlags.nextcloud) {
+      return;
+    }
+
     setError(null);
     setSuccess(null);
     setDataSourceType(type);
@@ -493,7 +494,11 @@ export function Dashboard() {
     event: React.FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault();
-    if (!session?.access_token || !uploadedFilePath) {
+    if (!session?.access_token) {
+      return;
+    }
+
+    if (!uploadedFilePath && !expenseFileContent.trim()) {
       return;
     }
 
@@ -636,7 +641,9 @@ export function Dashboard() {
                   {t('dashboard.dataSourceTitle')}
                 </h2>
                 <p className="mt-1 text-sm text-gray-600">
-                  {t('dashboard.dataSourceDesc')}
+                  {featureFlags.nextcloud
+                    ? t('dashboard.dataSourceDesc')
+                    : t('dashboard.dataSourceDescUploadOnly')}
                 </p>
               </div>
               <Link
@@ -647,32 +654,34 @@ export function Dashboard() {
                 {t('dashboard.scanReceipt')}
               </Link>
             </div>
-            <div className="mt-4 inline-flex rounded-md border border-gray-200 bg-gray-50 p-1">
-              <button
-                type="button"
-                onClick={() => void handleSelectDataSource('FILE_UPLOAD')}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                  dataSourceType === 'FILE_UPLOAD'
-                    ? 'bg-white text-blue-700 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {t('dashboard.uploadFile')}
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleSelectDataSource('NEXTCLOUD')}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                  dataSourceType === 'NEXTCLOUD'
-                    ? 'bg-white text-blue-700 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Nextcloud
-              </button>
-            </div>
+            {featureFlags.nextcloud ? (
+              <div className="mt-4 inline-flex rounded-md border border-gray-200 bg-gray-50 p-1">
+                <button
+                  type="button"
+                  onClick={() => void handleSelectDataSource('FILE_UPLOAD')}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                    dataSourceType === 'FILE_UPLOAD'
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {t('dashboard.uploadFile')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleSelectDataSource('NEXTCLOUD')}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                    dataSourceType === 'NEXTCLOUD'
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Nextcloud
+                </button>
+              </div>
+            ) : null}
 
-            {dataSourceType === 'FILE_UPLOAD' ? (
+            {dataSourceType === 'FILE_UPLOAD' || !featureFlags.nextcloud ? (
               <div className="mt-4 space-y-3">
                 <form
                   onSubmit={handleUploadExpenseFile}
@@ -696,17 +705,23 @@ export function Dashboard() {
                       : t('common.upload')}
                   </button>
                 </form>
-                {uploadedFilePath ? (
-                  <div className="space-y-3">
+                <div className="space-y-3">
+                  {uploadedFilePath ? (
                     <p className="text-xs text-gray-600">
                       {t('dashboard.currentFile')}{' '}
                       <span className="font-medium">{uploadedFilePath}</span>
                     </p>
-                    <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <p className="text-xs font-medium text-gray-700">
-                          {t('dashboard.filePreviewTitle')}
-                        </p>
+                  ) : (
+                    <p className="text-xs text-gray-600">
+                      {t('dashboard.noUploadedFile')}
+                    </p>
+                  )}
+                  <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="text-xs font-medium text-gray-700">
+                        {t('dashboard.filePreviewTitle')}
+                      </p>
+                      {uploadedFilePath ? (
                         <button
                           type="button"
                           onClick={() => void handleRefreshExpenseFile()}
@@ -719,60 +734,67 @@ export function Dashboard() {
                           <RefreshCw className="h-3.5 w-3.5" />
                           {t('common.refresh')}
                         </button>
-                      </div>
-                      {isLoadingCurrentExpenseFile ? (
-                        <p className="text-xs text-gray-500">
-                          {t('dashboard.loadingFile')}
-                        </p>
-                      ) : (
-                        <form
-                          onSubmit={handleSaveExpenseFile}
-                          className="space-y-2"
-                        >
-                          <textarea
-                            value={expenseFileContent}
-                            onChange={(event) =>
-                              setExpenseFileContent(event.target.value)
-                            }
-                            rows={10}
-                            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-xs text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                          />
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p
-                              className={`text-xs ${
-                                hasUnsavedExpenseFileChanges
-                                  ? 'text-amber-700'
-                                  : 'text-gray-500'
-                              }`}
-                            >
-                              {hasUnsavedExpenseFileChanges
-                                ? t('dashboard.unsavedFileChanges')
-                                : t('dashboard.fileSaved')}
-                            </p>
-                            <button
-                              type="submit"
-                              disabled={
-                                isSavingCurrentExpenseFile ||
-                                isLoadingCurrentExpenseFile ||
-                                !hasUnsavedExpenseFileChanges
-                              }
-                              className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              <Save className="h-3.5 w-3.5" />
-                              {isSavingCurrentExpenseFile
-                                ? t('common.saving')
-                                : t('dashboard.saveChanges')}
-                            </button>
-                          </div>
-                        </form>
-                      )}
+                      ) : null}
                     </div>
+                    {isLoadingCurrentExpenseFile ? (
+                      <p className="text-xs text-gray-500">
+                        {t('dashboard.loadingFile')}
+                      </p>
+                    ) : (
+                      <form
+                        onSubmit={handleSaveExpenseFile}
+                        className="space-y-2"
+                      >
+                        <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                          {t('dashboard.expenseFileFormatHint')}
+                        </p>
+                        <textarea
+                          value={expenseFileContent}
+                          onChange={(event) =>
+                            setExpenseFileContent(event.target.value)
+                          }
+                          placeholder={t(
+                            'dashboard.expenseTextareaPlaceholder',
+                          )}
+                          rows={10}
+                          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-xs text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                        />
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p
+                            className={`text-xs ${
+                              hasUnsavedExpenseFileChanges
+                                ? 'text-amber-700'
+                                : 'text-gray-500'
+                            }`}
+                          >
+                            {hasUnsavedExpenseFileChanges
+                              ? t('dashboard.unsavedFileChanges')
+                              : uploadedFilePath
+                                ? t('dashboard.fileSaved')
+                                : t('dashboard.noFileYetHint')}
+                          </p>
+                          <button
+                            type="submit"
+                            disabled={
+                              isSavingCurrentExpenseFile ||
+                              isLoadingCurrentExpenseFile ||
+                              !hasUnsavedExpenseFileChanges ||
+                              (!uploadedFilePath && !expenseFileContent.trim())
+                            }
+                            className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                            {isSavingCurrentExpenseFile
+                              ? t('common.saving')
+                              : uploadedFilePath
+                                ? t('dashboard.saveChanges')
+                                : t('dashboard.createExpenseFile')}
+                          </button>
+                        </div>
+                      </form>
+                    )}
                   </div>
-                ) : (
-                  <p className="text-xs text-amber-700">
-                    {t('dashboard.noUploadedFile')}
-                  </p>
-                )}
+                </div>
               </div>
             ) : (
               <form

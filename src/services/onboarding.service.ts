@@ -388,9 +388,9 @@ export async function getCurrentExpenseFile(
 export async function overwriteCurrentExpenseFile(
   accessToken: string,
   content: string,
-  uploadedFilePath: string,
+  uploadedFilePath?: string | null,
 ): Promise<void> {
-  const fileName = uploadedFilePath.split('/').pop() || 'expenses.txt';
+  const fileName = uploadedFilePath?.split('/').pop() || 'expenses.txt';
   const mimeType = fileName.toLowerCase().endsWith('.csv')
     ? 'text/csv'
     : 'text/plain';
