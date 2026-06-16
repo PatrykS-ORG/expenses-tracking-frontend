@@ -9,6 +9,7 @@ services:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
         VITE_API_URL: ${VITE_API_URL}
+        VITE_FEATURE_NEXTCLOUD: ${VITE_FEATURE_NEXTCLOUD:-false}
     container_name: expenses-frontend
     restart: unless-stopped
     ports:

@@ -30,3 +30,4 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_FEATURE_NEXTCLOUD: ${{ vars.VITE_FEATURE_NEXTCLOUD }}
