@@ -1,3 +1,5 @@
+import { buildExpensesListHtml } from './expensesListHtml';
+
 export const TEMPLATE_PLACEHOLDER_KEYS = [
   'userName',
   'currentMonth',
@@ -10,10 +12,20 @@ export const TEMPLATE_PLACEHOLDER_KEYS = [
 
 export type TemplatePlaceholderKey = (typeof TEMPLATE_PLACEHOLDER_KEYS)[number];
 
-const EXAMPLE_SALARY_PLN = 6500;
-const EXAMPLE_EXPENSE_AMOUNTS_PLN = [1240, 300, 100, 486.5] as const;
-const EXAMPLE_TOTAL_EXPENSES_PLN = EXAMPLE_EXPENSE_AMOUNTS_PLN.reduce(
-  (sum, amount) => sum + amount,
+const EXAMPLE_SALARY_PLN = 8500;
+const EXAMPLE_CATEGORIES_PLN = [
+  { name: 'Żywność i dom', total: 1450, items: [890, 350, 210] },
+  { name: 'Transport', total: 986.5, items: [620, 186.5, 180] },
+  { name: 'Rozrywka', total: 420, items: [220, 200] },
+  {
+    name: 'Rachunki i subskrypcje',
+    total: 1873.95,
+    items: [1450, 223.95, 200],
+  },
+  { name: 'Zdrowie', total: 500, items: [500] },
+] as const;
+const EXAMPLE_TOTAL_EXPENSES_PLN = EXAMPLE_CATEGORIES_PLN.reduce(
+  (sum, category) => sum + category.total,
   0,
 );
 const EXAMPLE_REMAINING_PLN = EXAMPLE_SALARY_PLN - EXAMPLE_TOTAL_EXPENSES_PLN;
@@ -30,93 +42,6 @@ function formatPlnAmountPl(amount: number): string {
 
 function formatPlnAmountEn(amount: number): string {
   return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PLN`;
-}
-
-function buildExpensesListHtml(
-  formatAmount: (amount: number) => string,
-  locale: 'en' | 'pl',
-): string {
-  const labels =
-    locale === 'en'
-      ? {
-          foodHome: 'Food & home',
-          groceries: 'Groceries',
-          household: 'Household supplies',
-          entertainment: 'Entertainment',
-          squash: 'Squash',
-          bowling: 'Bowling',
-          dance: 'Ballroom dance',
-          gifts: 'Gifts & occasions',
-          birthdayGift: 'Birthday gift',
-          transport: 'Transport',
-          fuelCommute: 'Fuel & commute',
-          total: 'Total expenses',
-        }
-      : {
-          foodHome: 'Żywność i dom',
-          groceries: 'Zakupy spożywcze',
-          household: 'Chemia i drogeria',
-          entertainment: 'Rozrywka',
-          squash: 'Squash',
-          bowling: 'Kręgle',
-          dance: 'Taniec towarzyski',
-          gifts: 'Prezenty i okazje',
-          birthdayGift: 'Prezent urodzinowy',
-          transport: 'Transport',
-          fuelCommute: 'Paliwo i komunikacja',
-          total: 'Razem wydatki',
-        };
-
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="expenses-table" style="border-collapse:collapse;width:100%;min-width:260px;font-size:13px;">
-  <tr>
-    <td style="padding:14px 8px 4px 0;font-weight:700;color:#14532d;border-top:2px solid #10b981;font-size:14px;vertical-align:top;">${labels.foodHome}</td>
-    <td align="right" class="amount-cell num" style="padding:14px 0 4px;font-weight:700;color:#14532d;border-top:2px solid #10b981;font-size:14px;white-space:nowrap;vertical-align:top;">${formatAmount(1240)}</td>
-  </tr>
-  <tr>
-    <td style="padding:3px 8px 3px 16px;color:#4d7c0f;vertical-align:top;">${labels.groceries}</td>
-    <td align="right" class="amount-cell num" style="padding:3px 0;color:#166534;white-space:nowrap;vertical-align:top;">${formatAmount(890)}</td>
-  </tr>
-  <tr>
-    <td style="padding:3px 8px 8px 16px;color:#4d7c0f;vertical-align:top;">${labels.household}</td>
-    <td align="right" class="amount-cell num" style="padding:3px 0 8px 0;color:#166534;white-space:nowrap;vertical-align:top;">${formatAmount(350)}</td>
-  </tr>
-  <tr>
-    <td style="padding:14px 8px 4px 0;font-weight:700;color:#14532d;border-top:2px solid #10b981;font-size:14px;vertical-align:top;">${labels.entertainment}</td>
-    <td align="right" class="amount-cell num" style="padding:14px 0 4px;font-weight:700;color:#14532d;border-top:2px solid #10b981;font-size:14px;white-space:nowrap;vertical-align:top;">${formatAmount(300)}</td>
-  </tr>
-  <tr>
-    <td style="padding:3px 8px 3px 16px;color:#4d7c0f;vertical-align:top;">${labels.squash}</td>
-    <td align="right" class="amount-cell num" style="padding:3px 0;color:#166534;white-space:nowrap;vertical-align:top;">${formatAmount(50)}</td>
-  </tr>
-  <tr>
-    <td style="padding:3px 8px 3px 16px;color:#4d7c0f;vertical-align:top;">${labels.bowling}</td>
-    <td align="right" class="amount-cell num" style="padding:3px 0;color:#166534;white-space:nowrap;vertical-align:top;">${formatAmount(150)}</td>
-  </tr>
-  <tr>
-    <td style="padding:3px 8px 8px 16px;color:#4d7c0f;vertical-align:top;">${labels.dance}</td>
-    <td align="right" class="amount-cell num" style="padding:3px 0 8px 0;color:#166534;white-space:nowrap;vertical-align:top;">${formatAmount(100)}</td>
-  </tr>
-  <tr>
-    <td style="padding:14px 8px 4px 0;font-weight:700;color:#14532d;border-top:2px solid #10b981;font-size:14px;vertical-align:top;">${labels.gifts}</td>
-    <td align="right" class="amount-cell num" style="padding:14px 0 4px;font-weight:700;color:#14532d;border-top:2px solid #10b981;font-size:14px;white-space:nowrap;vertical-align:top;">${formatAmount(100)}</td>
-  </tr>
-  <tr>
-    <td style="padding:3px 8px 8px 16px;color:#4d7c0f;vertical-align:top;">${labels.birthdayGift}</td>
-    <td align="right" class="amount-cell num" style="padding:3px 0 8px 0;color:#166534;white-space:nowrap;vertical-align:top;">${formatAmount(100)}</td>
-  </tr>
-  <tr>
-    <td style="padding:14px 8px 4px 0;font-weight:700;color:#14532d;border-top:2px solid #10b981;font-size:14px;vertical-align:top;">${labels.transport}</td>
-    <td align="right" class="amount-cell num" style="padding:14px 0 4px;font-weight:700;color:#14532d;border-top:2px solid #10b981;font-size:14px;white-space:nowrap;vertical-align:top;">${formatAmount(486.5)}</td>
-  </tr>
-  <tr>
-    <td style="padding:3px 8px 8px 16px;color:#4d7c0f;vertical-align:top;">${labels.fuelCommute}</td>
-    <td align="right" class="amount-cell num" style="padding:3px 0 8px 0;color:#166534;white-space:nowrap;vertical-align:top;">${formatAmount(486.5)}</td>
-  </tr>
-  <tr>
-    <td style="padding:16px 8px 4px 0;font-weight:800;color:#14532d;border-top:2px dashed #10b981;font-size:14px;vertical-align:top;">${labels.total}</td>
-    <td align="right" class="amount-cell num" style="padding:16px 0 4px;font-weight:800;color:#14532d;border-top:2px dashed #10b981;font-size:14px;white-space:nowrap;vertical-align:top;">${formatAmount(EXAMPLE_TOTAL_EXPENSES_PLN)}</td>
-  </tr>
-</table>`;
 }
 
 function displayNameFromEmail(
@@ -144,6 +69,96 @@ function displayNameFromEmail(
     .join(' ');
 }
 
+function getExampleCategories(locale: 'en' | 'pl') {
+  if (locale === 'en') {
+    return [
+      {
+        name: 'Food & home',
+        total: '1,450.00 PLN',
+        items: [
+          { name: 'Groceries', amount: '890.00 PLN' },
+          { name: 'Household supplies', amount: '350.00 PLN' },
+          { name: 'Drugstore', amount: '210.00 PLN' },
+        ],
+      },
+      {
+        name: 'Transport',
+        total: '986.50 PLN',
+        items: [
+          { name: 'Fuel', amount: '620.00 PLN' },
+          { name: 'Public transport', amount: '186.50 PLN' },
+          { name: 'Parking', amount: '180.00 PLN' },
+        ],
+      },
+      {
+        name: 'Entertainment',
+        total: '420.00 PLN',
+        items: [
+          { name: 'Restaurants & cafes', amount: '220.00 PLN' },
+          { name: 'Sports & hobbies', amount: '200.00 PLN' },
+        ],
+      },
+      {
+        name: 'Bills & subscriptions',
+        total: '1,873.95 PLN',
+        items: [
+          { name: 'Rent & utilities', amount: '1,450.00 PLN' },
+          { name: 'Phone & internet', amount: '223.95 PLN' },
+          { name: 'Streaming services', amount: '200.00 PLN' },
+        ],
+      },
+      {
+        name: 'Health',
+        total: '500.00 PLN',
+        items: [{ name: 'Pharmacy & medical', amount: '500.00 PLN' }],
+      },
+    ];
+  }
+
+  return [
+    {
+      name: 'Żywność i dom',
+      total: '1 450,00 zł',
+      items: [
+        { name: 'Zakupy spożywcze', amount: '890,00 zł' },
+        { name: 'Chemia i drogeria', amount: '350,00 zł' },
+        { name: 'Artykuły gospodarstwa domowego', amount: '210,00 zł' },
+      ],
+    },
+    {
+      name: 'Transport',
+      total: '986,50 zł',
+      items: [
+        { name: 'Paliwo', amount: '620,00 zł' },
+        { name: 'Komunikacja miejska', amount: '186,50 zł' },
+        { name: 'Parking', amount: '180,00 zł' },
+      ],
+    },
+    {
+      name: 'Rozrywka',
+      total: '420,00 zł',
+      items: [
+        { name: 'Restauracje i kawiarnie', amount: '220,00 zł' },
+        { name: 'Sport i hobby', amount: '200,00 zł' },
+      ],
+    },
+    {
+      name: 'Rachunki i subskrypcje',
+      total: '1 873,95 zł',
+      items: [
+        { name: 'Czynsz i media', amount: '1 450,00 zł' },
+        { name: 'Telefon i internet', amount: '223,95 zł' },
+        { name: 'Subskrypcje streamingowe', amount: '200,00 zł' },
+      ],
+    },
+    {
+      name: 'Zdrowie',
+      total: '500,00 zł',
+      items: [{ name: 'Apteka i lekarz', amount: '500,00 zł' }],
+    },
+  ];
+}
+
 export function getExampleTemplateValues(
   userEmail?: string | null,
   locale?: string,
@@ -161,17 +176,23 @@ export function getExampleTemplateValues(
 
   const savingsMessage =
     lang === 'en'
-      ? `Salary was ${salaryFormatted}, expenses ${totalExpensesFormatted} — ${remainingFormatted} left for the month. Groceries and fuel were the largest budget items.`
-      : `Wypłata wyniosła ${salaryFormatted}, wydatki ${totalExpensesFormatted} — na koncie miesiąca zostało ${remainingFormatted}. Największy udział w budżecie miały zakupy spożywcze i paliwo.`;
+      ? 'The largest share of your salary went to Bills & subscriptions (22.0%), driven mainly by rent. Your single most expensive item was Rent & utilities at 1,450.00 PLN. For the quickest savings, look at Entertainment (420.00 PLN) — cutting one restaurant visit could free up 200+ PLN next month.'
+      : 'Największą część wypłaty pochłonęły Rachunki i subskrypcje (22,0%) — tu dominuje czynsz. Najdroższy pojedynczy wydatek to Czynsz i media — 1 450,00 zł. Najszybciej zaoszczędzisz w kategorii Rozrywka (420,00 zł) — rezygnacja z jednej wizyty w restauracji to ponad 200 zł mniej w następnym miesiącu.';
 
   return {
     userName: displayNameFromEmail(userEmail, locale),
     currentMonth,
     salaryAmount: salaryFormatted,
     totalExpenses: totalExpensesFormatted,
-    savingsAmount: `+ ${remainingFormatted}`,
+    savingsAmount: remainingFormatted,
     savingsMessage,
-    expensesList: buildExpensesListHtml(formatAmount, lang),
+    expensesList: buildExpensesListHtml(
+      getExampleCategories(lang),
+      totalExpensesFormatted,
+      lang === 'en' ? 'Total' : 'Razem',
+      salaryFormatted,
+      lang,
+    ),
   };
 }
 
