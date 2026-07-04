@@ -110,12 +110,16 @@ function buildProgressBar(percentage: number): string {
   const clamped = Math.max(0, Math.min(100, percentage));
   const barWidth = clamped <= 0 ? 0 : Math.max(clamped, 4);
 
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 4px 0;">
+  // The progress-track/progress-fill classes let the templates' mobile
+  // media queries explicitly exclude these nested tables from rules meant
+  // for the outer expenses-table (e.g. min-width, first-child padding),
+  // which would otherwise override the percentage-based fill width.
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="progress-track" style="border-collapse:collapse;margin:0 0 4px 0;min-width:0;">
   <tr>
     <td style="background-color:${COLORS.progressTrack};border-radius:6px;height:10px;padding:0;line-height:0;font-size:0;">
-      <table role="presentation" width="${barWidth}%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+      <table role="presentation" width="${barWidth}%" cellpadding="0" cellspacing="0" class="progress-fill" style="border-collapse:collapse;min-width:0;">
         <tr>
-          <td style="background-color:${COLORS.primaryMedium};border-radius:6px;height:10px;line-height:0;font-size:0;">&nbsp;</td>
+          <td style="background-color:${COLORS.primaryMedium};border-radius:6px;height:10px;line-height:0;font-size:0;padding-right:0;">&nbsp;</td>
         </tr>
       </table>
     </td>

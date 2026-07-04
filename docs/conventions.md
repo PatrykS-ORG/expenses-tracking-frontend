@@ -49,6 +49,16 @@
 - Tailwind utility classes inline in JSX.
 - Use only `lucide-react` for icons.
 
+## Interactive iframe previews
+
+For features that let a user manipulate content rendered inside an `<iframe srcDoc>` (e.g. the dashboard's mobile template preview):
+
+- Use the **Pointer Events API** (`onPointerDown`/`onPointerMove`/`onPointerUp`/`onPointerCancel`) rather than separate mouse/touch handlers — it unifies mouse, touch, and pen input.
+- Put a transparent overlay `<div>` on top of the iframe to capture the gesture; call `setPointerCapture`/`releasePointerCapture` so dragging keeps working even if the pointer leaves the overlay's bounds.
+- Never assume the iframe's top-level document is what needs to scroll. Resolve the actual scrollable element per axis (e.g. via `elementFromPoint` + walking up checking computed `overflow-x`/`overflow-y` and `scrollWidth`/`scrollHeight`), since templates may nest their own `overflow: auto` containers.
+- Mouse-wheel forwarding needs a **native** `addEventListener('wheel', handler, { passive: false })` — React's synthetic wheel handler is passive by default and silently ignores `preventDefault()`.
+- Keep these interactions purely presentational (parent-side scripting via `sandbox="allow-same-origin"`); do not add `allow-scripts` to run code inside the previewed content.
+
 ## How to add a page
 
 1. Create `src/pages/NewPage.tsx`.
