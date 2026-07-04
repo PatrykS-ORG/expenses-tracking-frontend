@@ -26,15 +26,40 @@ const RESPONSIVE_STYLES = `<style type="text/css">
     .stat-amount-md { font-size: 22px !important; }
     .quote-text { font-size: 16px !important; line-height: 1.55 !important; padding-left: 14px !important; }
     .body-text { font-size: 14px !important; line-height: 1.65 !important; }
-    .col-stack,
-    .col-third {
+    .col-stack {
       display: block !important;
       width: 100% !important;
       max-width: 100% !important;
       box-sizing: border-box !important;
     }
-    .col-third { padding: 0 0 12px 0 !important; }
-    .col-third-last { padding-bottom: 0 !important; }
+    .stat-row { table-layout: fixed !important; width: 100% !important; }
+    .stat-col {
+      display: table-cell !important;
+      width: 33.33% !important;
+      max-width: 33.33% !important;
+      box-sizing: border-box !important;
+      vertical-align: top !important;
+      padding: 0 2px !important;
+    }
+    .stat-col-first { padding-left: 0 !important; }
+    .stat-col-last { padding-right: 0 !important; }
+    .stat-col-inner { padding: 10px 4px !important; }
+    .stat-col-label {
+      font-size: 8px !important;
+      letter-spacing: 0.3px !important;
+      padding-bottom: 4px !important;
+      line-height: 1.2 !important;
+    }
+    .stat-col-value {
+      font-size: 10px !important;
+      line-height: 1.2 !important;
+      word-break: break-word !important;
+    }
+    .stat-col .aurora-card-num { font-size: 13px !important; margin-top: 4px !important; }
+    .stat-col .stat-amount { font-size: 12px !important; margin-top: 4px !important; }
+    .stat-col .stat-amount-md { font-size: 12px !important; margin-top: 4px !important; }
+    .summary-cards-pad { padding-left: 12px !important; padding-right: 12px !important; }
+    .summary-head-pad { padding: 20px 12px !important; }
     .col-half-stack {
       display: block !important;
       width: 100% !important;
@@ -57,17 +82,27 @@ const RESPONSIVE_STYLES = `<style type="text/css">
       overflow-x: auto !important;
       -webkit-overflow-scrolling: touch;
     }
-    .expenses-scroll table { min-width: 260px; }
+    .expenses-scroll table.expenses-table { min-width: 260px; }
+    .expenses-scroll .progress-track,
+    .expenses-scroll .progress-fill { min-width: 0 !important; }
     .expenses-table .amount-cell { font-size: 12px !important; }
-    .expenses-table td:first-child { font-size: 12px !important; padding-right: 10px !important; }
-    .kpi-row .kpi-cell {
+    .expenses-table > tbody > tr > td:first-child { font-size: 12px !important; padding-right: 10px !important; }
+    .kpi-row .kpi-cell:not(.stat-col) {
       display: block !important;
       width: 100% !important;
       max-width: 100% !important;
       border-right: none !important;
       box-sizing: border-box !important;
     }
-    .kpi-row .kpi-cell:not(:last-child) { border-bottom: 1px solid #cbd5e1 !important; }
+    .kpi-row .kpi-cell.stat-col {
+      display: table-cell !important;
+      width: 33.33% !important;
+      max-width: 33.33% !important;
+      padding: 10px 6px !important;
+      border-right: 1px solid #cbd5e1 !important;
+      border-bottom: 1px solid #cbd5e1 !important;
+    }
+    .kpi-row .kpi-cell.stat-col-last { border-right: none !important; }
     .nav-pad { padding: 18px 20px !important; }
     .nav-meta {
       display: block !important;
@@ -110,12 +145,38 @@ function addClassToStyle(html, styleFragment, className) {
 
 function injectStyles(html) {
   if (html.includes('@media screen and (max-width: 620px)')) {
-    return html;
+    return html.replace(
+      /<style type="text\/css">[\s\S]*?<\/style>/,
+      RESPONSIVE_STYLES,
+    );
   }
   return html.replace(
     /<title>[^<]*<\/title>/,
     (match) => `${match}\n${RESPONSIVE_STYLES}`,
   );
+}
+
+function migrateStatCols(html) {
+  let h = html
+    .replaceAll('class="col-third col-stack"', 'class="stat-col"')
+    .replaceAll(
+      'class="col-third col-third-last col-stack"',
+      'class="stat-col stat-col-last"',
+    )
+    .replaceAll('class="kpi-cell col-stack"', 'class="kpi-cell stat-col"')
+    .replaceAll(
+      'class="kpi-cell kpi-cell-last col-stack"',
+      'class="kpi-cell stat-col stat-col-last"',
+    );
+  h = h.replace(
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">\n                      <tr>\n                        <td width="33%" class="stat-col',
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="stat-row" style="border-collapse:collapse;">\n                      <tr>\n                        <td width="33%" class="stat-col',
+  );
+  h = h.replace(
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">\n                <tr>\n                  <td width="33%" valign="top" class="stat-col',
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="stat-row">\n                <tr>\n                  <td width="33%" valign="top" class="stat-col',
+  );
+  return h;
 }
 
 function wrapExpensesList(html) {
@@ -139,6 +200,54 @@ function wrapExpensesList(html) {
 }
 
 const patches = {
+  'predefined-expense-summary': (html) => {
+    let h = html;
+    h = addClassToStyle(h, 'padding:24px 12px;', 'outer-pad');
+    h = addClassToStyle(
+      h,
+      'background-color:#1B4332;border-radius:12px 12px 0 0;padding:28px 32px;',
+      'summary-head-pad',
+    );
+    h = addClassToStyle(
+      h,
+      'background-color:#FFFFFF;padding:8px 32px 24px 32px;border-left:1px solid #DEE2E6;border-right:1px solid #DEE2E6;',
+      'summary-cards-pad',
+    );
+    h = h.replace(
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">\n                      <tr>\n                        <td width="33%" style="padding:0 6px 0 0;vertical-align:top;">',
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="stat-row" style="border-collapse:collapse;">\n                      <tr>\n                        <td width="33%" class="stat-col stat-col-first" style="padding:0 6px 0 0;vertical-align:top;">',
+    );
+    h = h.replace(
+      '<td width="33%" style="padding:0 3px;vertical-align:top;">',
+      '<td width="33%" class="stat-col" style="padding:0 3px;vertical-align:top;">',
+    );
+    h = h.replace(
+      '<td width="33%" style="padding:0 0 0 6px;vertical-align:top;">',
+      '<td width="33%" class="stat-col stat-col-last" style="padding:0 0 0 6px;vertical-align:top;">',
+    );
+    h = h.replaceAll(
+      '<td style="padding:16px 14px;text-align:center;">',
+      '<td class="stat-col-inner" style="padding:16px 14px;text-align:center;">',
+    );
+    h = h.replaceAll(
+      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#6C757D;padding-bottom:8px;">',
+      '<div class="stat-col-label" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#6C757D;padding-bottom:8px;">',
+    );
+    h = h.replace(
+      '<div style="font-size:14px;font-weight:800;color:#1B4332;line-height:1.2;">{{ salaryAmount }}</div>',
+      '<div class="stat-col-value num" style="font-size:14px;font-weight:800;color:#1B4332;line-height:1.2;">{{ salaryAmount }}</div>',
+    );
+    h = h.replace(
+      '<div style="font-size:14px;font-weight:800;color:#E63946;line-height:1.3;">{{ totalExpenses }}</div>',
+      '<div class="stat-col-value num" style="font-size:14px;font-weight:800;color:#E63946;line-height:1.3;">{{ totalExpenses }}</div>',
+    );
+    h = h.replace(
+      '<div style="font-size:14px;font-weight:800;color:#2D6A4F;line-height:1.3;">{{ savingsAmount }}</div>',
+      '<div class="stat-col-value num" style="font-size:14px;font-weight:800;color:#2D6A4F;line-height:1.3;">{{ savingsAmount }}</div>',
+    );
+    return h;
+  },
+
   'predefined-editorial': (html) => {
     let h = html;
     h = addClassToStyle(h, 'padding:56px 16px;', 'outer-pad');
@@ -231,15 +340,15 @@ const patches = {
     h = addClassToStyle(h, 'padding:32px 32px 0;', 'sec-pad block-pad-sm');
     h = h.replace(
       '<td width="33%" valign="top" style="padding:0 6px 0 0;">',
-      '<td width="33%" valign="top" class="col-third col-stack" style="padding:0 6px 0 0;">',
+      '<td width="33%" valign="top" class="stat-col stat-col-first" style="padding:0 6px 0 0;">',
     );
     h = h.replace(
       '<td width="33%" valign="top" style="padding:0 6px;">',
-      '<td width="33%" valign="top" class="col-third col-stack" style="padding:0 6px;">',
+      '<td width="33%" valign="top" class="stat-col" style="padding:0 6px;">',
     );
     h = h.replace(
       '<td width="34%" valign="top" style="padding:0 0 0 6px;">',
-      '<td width="34%" valign="top" class="col-third col-third-last col-stack" style="padding:0 0 0 6px;">',
+      '<td width="34%" valign="top" class="stat-col stat-col-last" style="padding:0 0 0 6px;">',
     );
     h = h.replace(
       '<p style="margin:14px 0 0;font-size:28px;font-weight:800;color:#312e81;line-height:1;letter-spacing:-0.5px;">{{ salaryAmount }}</p>',
@@ -288,15 +397,15 @@ const patches = {
     );
     h = h.replace(
       '<td width="33%" style="padding:18px 22px;background-color:#f8fafc;border-right:1px solid #cbd5e1;border-bottom:1px solid #cbd5e1;">\n                    <p style="margin:0;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#64748b;">Wypłata</p>',
-      '<td width="33%" class="kpi-cell col-stack" style="padding:18px 22px;background-color:#f8fafc;border-right:1px solid #cbd5e1;border-bottom:1px solid #cbd5e1;">\n                    <p style="margin:0;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#64748b;">Wypłata</p>',
+      '<td width="33%" class="kpi-cell stat-col stat-col-first" style="padding:18px 22px;background-color:#f8fafc;border-right:1px solid #cbd5e1;border-bottom:1px solid #cbd5e1;">\n                    <p style="margin:0;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#64748b;">Wypłata</p>',
     );
     h = h.replace(
       '<td width="34%" style="padding:18px 22px;background-color:#f8fafc;border-right:1px solid #cbd5e1;border-bottom:1px solid #cbd5e1;">\n                    <p style="margin:0;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#64748b;">Łączne wydatki</p>',
-      '<td width="34%" class="kpi-cell col-stack" style="padding:18px 22px;background-color:#f8fafc;border-right:1px solid #cbd5e1;border-bottom:1px solid #cbd5e1;">\n                    <p style="margin:0;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#64748b;">Łączne wydatki</p>',
+      '<td width="34%" class="kpi-cell stat-col" style="padding:18px 22px;background-color:#f8fafc;border-right:1px solid #cbd5e1;border-bottom:1px solid #cbd5e1;">\n                    <p style="margin:0;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#64748b;">Łączne wydatki</p>',
     );
     h = h.replace(
       '<td width="33%" style="padding:18px 22px;background-color:#f8fafc;border-bottom:1px solid #cbd5e1;">\n                    <p style="margin:0;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#64748b;">Pozostało</p>',
-      '<td width="33%" class="kpi-cell kpi-cell-last col-stack" style="padding:18px 22px;background-color:#f8fafc;border-bottom:1px solid #cbd5e1;">\n                    <p style="margin:0;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#64748b;">Pozostało</p>',
+      '<td width="33%" class="kpi-cell stat-col stat-col-last" style="padding:18px 22px;background-color:#f8fafc;border-bottom:1px solid #cbd5e1;">\n                    <p style="margin:0;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#64748b;">Pozostało</p>',
     );
     h = h.replace(
       '<p style="margin:8px 0 0;font-size:24px;font-weight:700;color:#15803d;letter-spacing:-0.3px;">{{ salaryAmount }}</p>',
@@ -358,15 +467,15 @@ const patches = {
     );
     h = h.replace(
       '<td width="33%" valign="top" style="padding:0 4px 0 0;">',
-      '<td width="33%" valign="top" class="col-third col-stack" style="padding:0 4px 0 0;">',
+      '<td width="33%" valign="top" class="stat-col stat-col-first" style="padding:0 4px 0 0;">',
     );
     h = h.replace(
       '<td width="34%" valign="top" style="padding:0 4px;">',
-      '<td width="34%" valign="top" class="col-third col-stack" style="padding:0 4px;">',
+      '<td width="34%" valign="top" class="stat-col" style="padding:0 4px;">',
     );
     h = h.replace(
       '<td width="33%" valign="top" style="padding:0 0 0 4px;">',
-      '<td width="33%" valign="top" class="col-third col-third-last col-stack" style="padding:0 0 0 4px;">',
+      '<td width="33%" valign="top" class="stat-col stat-col-last" style="padding:0 0 0 4px;">',
     );
     h = h.replace(
       '<p style="margin:8px 0 0;font-size:22px;font-weight:800;color:#14532d;letter-spacing:-0.5px;">{{ salaryAmount }}</p>',
@@ -393,7 +502,8 @@ const templates = JSON.parse(readFileSync(jsonPath, 'utf8'));
 
 for (const template of templates) {
   const patch = patches[template.id];
-  let content = patch(template.content);
+  let content = patch ? patch(template.content) : template.content;
+  content = migrateStatCols(content);
   content = injectStyles(content);
   content = wrapExpensesList(content);
   template.content = content;

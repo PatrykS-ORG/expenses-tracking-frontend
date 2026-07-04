@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/useAuthStore';
@@ -15,6 +15,9 @@ import {
   Save,
   ScanSearch,
   CalendarClock,
+  Monitor,
+  Smartphone,
+  Hand,
 } from 'lucide-react';
 import { MAX_USER_TEMPLATES, type Template } from '../types/template.types';
 import {
@@ -47,12 +50,55 @@ type SelectedTemplate =
   | { kind: 'predefined'; template: PredefinedTemplate }
   | { kind: 'user'; template: Template };
 
+type PreviewMode = 'web' | 'mobile';
+
 const SUMMARY_TIMEZONE_OPTIONS = [
   'Europe/Warsaw',
   'Europe/London',
   'Europe/Berlin',
   'UTC',
 ];
+
+function isElementScrollableOnAxis(
+  element: Element,
+  axis: 'x' | 'y',
+  view: Window,
+): boolean {
+  const style = view.getComputedStyle(element);
+  const overflow = axis === 'x' ? style.overflowX : style.overflowY;
+  const canOverflow =
+    overflow === 'auto' || overflow === 'scroll' || overflow === 'overlay';
+  const hasExtraContent =
+    axis === 'x'
+      ? element.scrollWidth > element.clientWidth + 1
+      : element.scrollHeight > element.clientHeight + 1;
+  return canOverflow && hasExtraContent;
+}
+
+// Some templates (e.g. the itemized/aurora expense lists) put a
+// horizontally-scrollable wrapper *inside* the document rather than letting
+// the page itself overflow. Walking up from the element under the pointer
+// finds whichever container actually owns scrolling on a given axis,
+// falling back to the document's root scrolling element otherwise.
+function findScrollableAncestor(
+  doc: Document,
+  start: Element | null,
+  axis: 'x' | 'y',
+): HTMLElement {
+  const root = (doc.scrollingElement ?? doc.documentElement) as HTMLElement;
+  const view = doc.defaultView;
+  if (!view) {
+    return root;
+  }
+  let element: Element | null = start;
+  while (element && element !== root) {
+    if (isElementScrollableOnAxis(element, axis, view)) {
+      return element as HTMLElement;
+    }
+    element = element.parentElement;
+  }
+  return root;
+}
 
 export function Dashboard() {
   const { t, i18n } = useTranslation();
@@ -91,6 +137,17 @@ export function Dashboard() {
   );
   const [testEmailRecipient, setTestEmailRecipient] = useState('');
   const [showExamplePreview, setShowExamplePreview] = useState(true);
+  const [previewMode, setPreviewMode] = useState<PreviewMode>('web');
+  const mobilePreviewIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const mobileDragOverlayRef = useRef<HTMLDivElement | null>(null);
+  const mobileDragStateRef = useRef<{
+    startX: number;
+    startY: number;
+    startScrollLeft: number;
+    startScrollTop: number;
+    horizontalTarget: HTMLElement;
+    verticalTarget: HTMLElement;
+  } | null>(null);
   const [summaryEnabled, setSummaryEnabled] = useState(false);
   const [summaryScheduleDay, setSummaryScheduleDay] = useState(1);
   const [summaryScheduleHour, setSummaryScheduleHour] = useState(8);
@@ -136,6 +193,94 @@ export function Dashboard() {
       getExampleTemplateValues(user?.email, locale),
     );
   }, [selectedTemplate, showExamplePreview, user?.email, locale]);
+
+  const handleMobilePreviewPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const iframe = mobilePreviewIframeRef.current;
+      const doc = iframe?.contentDocument;
+      if (!iframe || !doc) {
+        return;
+      }
+      const rect = iframe.getBoundingClientRect();
+      const elementAtPoint = doc.elementFromPoint(
+        event.clientX - rect.left,
+        event.clientY - rect.top,
+      );
+      const horizontalTarget = findScrollableAncestor(doc, elementAtPoint, 'x');
+      const verticalTarget = findScrollableAncestor(doc, elementAtPoint, 'y');
+      mobileDragStateRef.current = {
+        startX: event.clientX,
+        startY: event.clientY,
+        startScrollLeft: horizontalTarget.scrollLeft,
+        startScrollTop: verticalTarget.scrollTop,
+        horizontalTarget,
+        verticalTarget,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.currentTarget.classList.add('cursor-grabbing');
+      event.currentTarget.classList.remove('cursor-grab');
+    },
+    [],
+  );
+
+  const handleMobilePreviewPointerMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const drag = mobileDragStateRef.current;
+      if (!drag) {
+        return;
+      }
+      const deltaX = event.clientX - drag.startX;
+      const deltaY = event.clientY - drag.startY;
+      drag.horizontalTarget.scrollLeft = drag.startScrollLeft - deltaX;
+      drag.verticalTarget.scrollTop = drag.startScrollTop - deltaY;
+    },
+    [],
+  );
+
+  const handleMobilePreviewPointerUp = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      mobileDragStateRef.current = null;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      event.currentTarget.classList.remove('cursor-grabbing');
+      event.currentTarget.classList.add('cursor-grab');
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (previewMode !== 'mobile') {
+      return;
+    }
+    const overlay = mobileDragOverlayRef.current;
+    if (!overlay) {
+      return;
+    }
+    // React registers wheel listeners as passive by default, which would
+    // silently ignore preventDefault(); a native listener is required so we
+    // can stop the outer panel from scrolling and forward the delta into
+    // the iframe's own document instead, mimicking a real device screen.
+    const handleWheel = (event: WheelEvent) => {
+      const iframe = mobilePreviewIframeRef.current;
+      const doc = iframe?.contentDocument;
+      if (!iframe || !doc) {
+        return;
+      }
+      event.preventDefault();
+      const rect = iframe.getBoundingClientRect();
+      const elementAtPoint = doc.elementFromPoint(
+        event.clientX - rect.left,
+        event.clientY - rect.top,
+      );
+      const horizontalTarget = findScrollableAncestor(doc, elementAtPoint, 'x');
+      const verticalTarget = findScrollableAncestor(doc, elementAtPoint, 'y');
+      horizontalTarget.scrollLeft += event.deltaX;
+      verticalTarget.scrollTop += event.deltaY;
+    };
+    overlay.addEventListener('wheel', handleWheel, { passive: false });
+    return () => overlay.removeEventListener('wheel', handleWheel);
+  }, [previewMode, previewHtml]);
 
   const isSelectedTemplateActive =
     selectedTemplate?.kind === 'user' &&
@@ -1144,44 +1289,112 @@ export function Dashboard() {
                       <p className="text-sm font-medium text-gray-700">
                         {t('dashboard.emailPreviewLabel')}
                       </p>
-                      <label className="inline-flex cursor-pointer items-center gap-2.5">
-                        <span className="text-sm text-gray-600">
-                          {t('dashboard.exampleData')}
-                        </span>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={showExamplePreview}
-                          aria-label={t('dashboard.exampleDataAria')}
-                          onClick={() =>
-                            setShowExamplePreview((current) => !current)
-                          }
-                          className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                            showExamplePreview ? 'bg-blue-600' : 'bg-gray-300'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                              showExamplePreview
-                                ? 'translate-x-6'
-                                : 'translate-x-1'
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="inline-flex items-center rounded-md border border-gray-300 bg-gray-50 p-0.5">
+                          <button
+                            type="button"
+                            aria-pressed={previewMode === 'web'}
+                            aria-label={t('dashboard.previewModeWebAria')}
+                            onClick={() => setPreviewMode('web')}
+                            className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm font-medium transition-colors ${
+                              previewMode === 'web'
+                                ? 'bg-white text-gray-900 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
                             }`}
-                          />
-                        </button>
-                      </label>
+                          >
+                            <Monitor className="h-4 w-4" />
+                            {t('dashboard.previewModeWeb')}
+                          </button>
+                          <button
+                            type="button"
+                            aria-pressed={previewMode === 'mobile'}
+                            aria-label={t('dashboard.previewModeMobileAria')}
+                            onClick={() => setPreviewMode('mobile')}
+                            className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm font-medium transition-colors ${
+                              previewMode === 'mobile'
+                                ? 'bg-white text-gray-900 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            <Smartphone className="h-4 w-4" />
+                            {t('dashboard.previewModeMobile')}
+                          </button>
+                        </div>
+                        <label className="inline-flex cursor-pointer items-center gap-2.5">
+                          <span className="text-sm text-gray-600">
+                            {t('dashboard.exampleData')}
+                          </span>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={showExamplePreview}
+                            aria-label={t('dashboard.exampleDataAria')}
+                            onClick={() =>
+                              setShowExamplePreview((current) => !current)
+                            }
+                            className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                              showExamplePreview ? 'bg-blue-600' : 'bg-gray-300'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                showExamplePreview
+                                  ? 'translate-x-6'
+                                  : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
+                        </label>
+                      </div>
                     </div>
                     {showExamplePreview && (
                       <p className="mb-2 text-xs text-gray-500">
                         {t('dashboard.exampleDataHint')}
                       </p>
                     )}
-                    <div className="overflow-hidden rounded-md border border-gray-300">
-                      <iframe
-                        title="Template HTML preview"
-                        srcDoc={previewHtml}
-                        className="h-[min(920px,75vh)] w-full bg-white"
-                        sandbox="allow-same-origin"
-                      />
+                    {previewMode === 'mobile' && (
+                      <p className="mb-2 inline-flex items-center gap-1.5 text-xs text-gray-500">
+                        <Hand className="h-3.5 w-3.5" />
+                        {t('dashboard.previewModeMobileDragHint')}
+                      </p>
+                    )}
+                    <div
+                      className={
+                        previewMode === 'mobile'
+                          ? 'flex justify-center overflow-auto rounded-md border border-gray-300 bg-gray-100 py-6'
+                          : 'overflow-hidden rounded-md border border-gray-300'
+                      }
+                    >
+                      {previewMode === 'mobile' ? (
+                        <div className="relative h-[min(820px,75vh)] w-[390px] max-w-full flex-shrink-0">
+                          <iframe
+                            ref={mobilePreviewIframeRef}
+                            title="Template HTML preview"
+                            srcDoc={previewHtml}
+                            className="h-full w-full rounded-[28px] border-4 border-gray-800 bg-white shadow-lg"
+                            sandbox="allow-same-origin"
+                          />
+                          <div
+                            ref={mobileDragOverlayRef}
+                            role="presentation"
+                            aria-label={t(
+                              'dashboard.previewModeMobileDragHint',
+                            )}
+                            onPointerDown={handleMobilePreviewPointerDown}
+                            onPointerMove={handleMobilePreviewPointerMove}
+                            onPointerUp={handleMobilePreviewPointerUp}
+                            onPointerCancel={handleMobilePreviewPointerUp}
+                            className="absolute inset-0 touch-none cursor-grab select-none rounded-[24px]"
+                          />
+                        </div>
+                      ) : (
+                        <iframe
+                          title="Template HTML preview"
+                          srcDoc={previewHtml}
+                          className="h-[min(920px,75vh)] w-full bg-white"
+                          sandbox="allow-same-origin"
+                        />
+                      )}
                     </div>
                   </div>
 
