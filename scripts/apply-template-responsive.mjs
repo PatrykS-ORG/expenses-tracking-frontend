@@ -57,9 +57,11 @@ const RESPONSIVE_STYLES = `<style type="text/css">
       overflow-x: auto !important;
       -webkit-overflow-scrolling: touch;
     }
-    .expenses-scroll table { min-width: 260px; }
+    .expenses-scroll table.expenses-table { min-width: 260px; }
+    .expenses-scroll .progress-track,
+    .expenses-scroll .progress-fill { min-width: 0 !important; }
     .expenses-table .amount-cell { font-size: 12px !important; }
-    .expenses-table td:first-child { font-size: 12px !important; padding-right: 10px !important; }
+    .expenses-table > tbody > tr > td:first-child { font-size: 12px !important; padding-right: 10px !important; }
     .kpi-row .kpi-cell {
       display: block !important;
       width: 100% !important;

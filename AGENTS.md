@@ -8,6 +8,7 @@ Implemented frontend scope:
 - Route guards (`/`, `/auth`, `/onboarding`)
 - Onboarding questionnaire + AI template generation
 - Dashboard template selection/activation
+- Dashboard template preview: web/mobile toggle with touch-like drag-to-scroll simulation
 - Data-source selection (`FILE_UPLOAD` / `NEXTCLOUD`)
 - Expense file upload via backend GraphQL mutations
 - Receipt scanner page (`/receipt-scan`) with image OCR scan and expense approval
@@ -49,7 +50,13 @@ src/
 ├── data/                    # predefined template catalog
 ├── types/                   # shared TS types
 └── index.css
+
+scripts/
+├── apply-template-responsive.mjs   # injects mobile-responsive CSS/classes into predefinedTemplates.pl.json
+└── build-en-templates.mjs          # regenerates predefinedTemplates.en.json from the PL source
 ```
+
+Run both `scripts/` files after editing `predefinedTemplates.pl.json` by hand — the EN catalog is generated, not hand-maintained.
 
 ## Key architecture notes
 
