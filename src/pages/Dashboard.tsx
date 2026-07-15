@@ -1,1442 +1,233 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/useAuthStore';
-import { LanguageSwitcher } from '../components/LanguageSwitcher';
-import { SpendwellLogo } from '../components/SpendwellLogo';
-import {
-  LogOut,
-  CheckCircle2,
-  Eye,
-  Sparkles,
-  Trash2,
-  Mail,
-  RefreshCw,
-  Save,
-  ScanSearch,
-  CalendarClock,
-  Monitor,
-  Smartphone,
-  Hand,
-} from 'lucide-react';
-import { MAX_USER_TEMPLATES, type Template } from '../types/template.types';
 import {
   createTemplate,
-  deleteTemplate as deleteTemplateRequest,
-  getCurrentExpenseFile,
+  deleteTemplate,
   getTemplateDashboard,
-  overwriteCurrentExpenseFile,
-  sendTestEmail as sendTestEmailRequest,
-  setActiveTemplate as setActiveTemplateRequest,
-  getSummarySchedule,
-  updateSummarySchedule,
-  updateDataSource,
-  uploadExpenseFile,
-  type DataSourceType,
+  setActiveTemplate,
 } from '../services/onboarding.service';
 import {
   getPredefinedTemplate,
   getPredefinedTemplates,
-  isPredefinedTemplateId,
   type PredefinedTemplate,
 } from '../data/predefinedTemplates';
 import {
   applyTemplatePreviewSamples,
   getExampleTemplateValues,
 } from '../lib/templatePreview';
-import { featureFlags } from '../lib/featureFlags';
+import { MAX_USER_TEMPLATES, type Template } from '../types/template.types';
+import { ExpenseSourcePanel } from '../components/ExpenseSourcePanel';
+import { DashboardHeader } from '../components/DashboardHeader';
+import { DashboardAlerts } from '../components/DashboardAlerts';
+import {
+  TemplateSidebar,
+  type TemplateListItem,
+} from '../components/TemplateSidebar';
+import {
+  TemplatePreviewPanel,
+  type PreviewSelection,
+} from '../components/TemplatePreviewPanel';
 
-type SelectedTemplate =
+type Selection =
   | { kind: 'predefined'; template: PredefinedTemplate }
   | { kind: 'user'; template: Template };
-
 type PreviewMode = 'web' | 'mobile';
-
-const SUMMARY_TIMEZONE_OPTIONS = [
-  'Europe/Warsaw',
-  'Europe/London',
-  'Europe/Berlin',
-  'UTC',
-];
-
-function isElementScrollableOnAxis(
-  element: Element,
-  axis: 'x' | 'y',
-  view: Window,
-): boolean {
-  const style = view.getComputedStyle(element);
-  const overflow = axis === 'x' ? style.overflowX : style.overflowY;
-  const canOverflow =
-    overflow === 'auto' || overflow === 'scroll' || overflow === 'overlay';
-  const hasExtraContent =
-    axis === 'x'
-      ? element.scrollWidth > element.clientWidth + 1
-      : element.scrollHeight > element.clientHeight + 1;
-  return canOverflow && hasExtraContent;
-}
-
-// Some templates (e.g. the itemized/aurora expense lists) put a
-// horizontally-scrollable wrapper *inside* the document rather than letting
-// the page itself overflow. Walking up from the element under the pointer
-// finds whichever container actually owns scrolling on a given axis,
-// falling back to the document's root scrolling element otherwise.
-function findScrollableAncestor(
-  doc: Document,
-  start: Element | null,
-  axis: 'x' | 'y',
-): HTMLElement {
-  const root = (doc.scrollingElement ?? doc.documentElement) as HTMLElement;
-  const view = doc.defaultView;
-  if (!view) {
-    return root;
-  }
-  let element: Element | null = start;
-  while (element && element !== root) {
-    if (isElementScrollableOnAxis(element, axis, view)) {
-      return element as HTMLElement;
-    }
-    element = element.parentElement;
-  }
-  return root;
-}
 
 export function Dashboard() {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? 'pl';
+  const { user, session } = useAuthStore();
   const location = useLocation();
-  const { user, session, signOut } = useAuthStore();
-  const predefinedTemplates = useMemo(
-    () => getPredefinedTemplates(locale),
-    [locale],
-  );
-  const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
-  const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
-  const [isApplyingTemplate, setIsApplyingTemplate] = useState(false);
-  const [isSavingPath, setIsSavingPath] = useState(false);
-  const [isUploadingExpenseFile, setIsUploadingExpenseFile] = useState(false);
-  const [isLoadingCurrentExpenseFile, setIsLoadingCurrentExpenseFile] =
-    useState(false);
-  const [isSavingCurrentExpenseFile, setIsSavingCurrentExpenseFile] =
-    useState(false);
-  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
+  const locale = i18n.resolvedLanguage ?? 'pl';
+  const predefined = useMemo(() => getPredefinedTemplates(locale), [locale]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [previewMode, setPreviewMode] = useState<PreviewMode>('web');
+  const [showSamples, setShowSamples] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
-    null,
-  );
-  const [dataSourceType, setDataSourceType] =
-    useState<DataSourceType>('FILE_UPLOAD');
-  const [nextcloudFilePath, setNextcloudFilePath] = useState('');
-  const [uploadedFilePath, setUploadedFilePath] = useState<string | null>(null);
-  const [expenseFileContent, setExpenseFileContent] = useState('');
-  const [savedExpenseFileContent, setSavedExpenseFileContent] = useState('');
-  const [selectedExpenseFile, setSelectedExpenseFile] = useState<File | null>(
-    null,
-  );
-  const [testEmailRecipient, setTestEmailRecipient] = useState('');
-  const [showExamplePreview, setShowExamplePreview] = useState(true);
-  const [previewMode, setPreviewMode] = useState<PreviewMode>('web');
-  const mobilePreviewIframeRef = useRef<HTMLIFrameElement | null>(null);
-  const mobileDragOverlayRef = useRef<HTMLDivElement | null>(null);
-  const mobileDragStateRef = useRef<{
-    startX: number;
-    startY: number;
-    startScrollLeft: number;
-    startScrollTop: number;
-    horizontalTarget: HTMLElement;
-    verticalTarget: HTMLElement;
-  } | null>(null);
-  const [summaryEnabled, setSummaryEnabled] = useState(false);
-  const [summaryScheduleDay, setSummaryScheduleDay] = useState(1);
-  const [summaryScheduleHour, setSummaryScheduleHour] = useState(8);
-  const [summaryTimezone, setSummaryTimezone] = useState(
-    Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Warsaw',
-  );
-  const [summaryEmailLanguage, setSummaryEmailLanguage] = useState<'PL' | 'EN'>(
-    locale.startsWith('en') ? 'EN' : 'PL',
-  );
-  const [nextSummaryAt, setNextSummaryAt] = useState<string | null>(null);
-  const [isSavingSummarySchedule, setIsSavingSummarySchedule] = useState(false);
-
-  const selectedTemplate = useMemo((): SelectedTemplate | null => {
-    if (!selectedTemplateId) {
-      return null;
-    }
-    const predefined = getPredefinedTemplate(selectedTemplateId, locale);
-    if (predefined) {
-      return { kind: 'predefined', template: predefined };
-    }
-    const userTemplate = templates.find(
-      (template) => template.id === selectedTemplateId,
-    );
-    if (userTemplate) {
-      return { kind: 'user', template: userTemplate };
-    }
-    return null;
-  }, [selectedTemplateId, templates, locale]);
-
-  const previewHtml = useMemo(() => {
-    if (!selectedTemplate) {
-      return '';
-    }
-    const content = selectedTemplate.template.content.trim();
-    if (!content) {
-      return '';
-    }
-    if (!showExamplePreview) {
-      return selectedTemplate.template.content;
-    }
-    return applyTemplatePreviewSamples(
-      content,
-      getExampleTemplateValues(user?.email, locale),
-    );
-  }, [selectedTemplate, showExamplePreview, user?.email, locale]);
-
-  const handleMobilePreviewPointerDown = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      const iframe = mobilePreviewIframeRef.current;
-      const doc = iframe?.contentDocument;
-      if (!iframe || !doc) {
-        return;
-      }
-      const rect = iframe.getBoundingClientRect();
-      const elementAtPoint = doc.elementFromPoint(
-        event.clientX - rect.left,
-        event.clientY - rect.top,
-      );
-      const horizontalTarget = findScrollableAncestor(doc, elementAtPoint, 'x');
-      const verticalTarget = findScrollableAncestor(doc, elementAtPoint, 'y');
-      mobileDragStateRef.current = {
-        startX: event.clientX,
-        startY: event.clientY,
-        startScrollLeft: horizontalTarget.scrollLeft,
-        startScrollTop: verticalTarget.scrollTop,
-        horizontalTarget,
-        verticalTarget,
-      };
-      event.currentTarget.setPointerCapture(event.pointerId);
-      event.currentTarget.classList.add('cursor-grabbing');
-      event.currentTarget.classList.remove('cursor-grab');
-    },
-    [],
+  const showUploadSuccess = useMemo(
+    () => new URLSearchParams(location.search).get('setup') === 'upload',
+    [location.search],
   );
 
-  const handleMobilePreviewPointerMove = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      const drag = mobileDragStateRef.current;
-      if (!drag) {
-        return;
-      }
-      const deltaX = event.clientX - drag.startX;
-      const deltaY = event.clientY - drag.startY;
-      drag.horizontalTarget.scrollLeft = drag.startScrollLeft - deltaX;
-      drag.verticalTarget.scrollTop = drag.startScrollTop - deltaY;
-    },
-    [],
-  );
+  const selection = useMemo<Selection | null>(() => {
+    if (!selectedId) return null;
+    const readyMade = getPredefinedTemplate(selectedId, locale);
+    if (readyMade) return { kind: 'predefined', template: readyMade };
+    const custom = templates.find((item) => item.id === selectedId);
+    return custom ? { kind: 'user', template: custom } : null;
+  }, [locale, selectedId, templates]);
 
-  const handleMobilePreviewPointerUp = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      mobileDragStateRef.current = null;
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
-      event.currentTarget.classList.remove('cursor-grabbing');
-      event.currentTarget.classList.add('cursor-grab');
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (previewMode !== 'mobile') {
-      return;
-    }
-    const overlay = mobileDragOverlayRef.current;
-    if (!overlay) {
-      return;
-    }
-    // React registers wheel listeners as passive by default, which would
-    // silently ignore preventDefault(); a native listener is required so we
-    // can stop the outer panel from scrolling and forward the delta into
-    // the iframe's own document instead, mimicking a real device screen.
-    const handleWheel = (event: WheelEvent) => {
-      const iframe = mobilePreviewIframeRef.current;
-      const doc = iframe?.contentDocument;
-      if (!iframe || !doc) {
-        return;
-      }
-      event.preventDefault();
-      const rect = iframe.getBoundingClientRect();
-      const elementAtPoint = doc.elementFromPoint(
-        event.clientX - rect.left,
-        event.clientY - rect.top,
-      );
-      const horizontalTarget = findScrollableAncestor(doc, elementAtPoint, 'x');
-      const verticalTarget = findScrollableAncestor(doc, elementAtPoint, 'y');
-      horizontalTarget.scrollLeft += event.deltaX;
-      verticalTarget.scrollTop += event.deltaY;
+  const displayedContent = selection?.template.content ?? '';
+  const selectedTemplate = useMemo<PreviewSelection | null>(() => {
+    if (!selection) return null;
+    return {
+      name: selection.template.name,
+      isActiveUserTemplate:
+        selection.kind === 'user' && selection.template.id === activeId,
     };
-    overlay.addEventListener('wheel', handleWheel, { passive: false });
-    return () => overlay.removeEventListener('wheel', handleWheel);
-  }, [previewMode, previewHtml]);
-
-  const isSelectedTemplateActive =
-    selectedTemplate?.kind === 'user' &&
-    selectedTemplate.template.id === activeTemplateId;
-  const hasReachedTemplateLimit = templates.length >= MAX_USER_TEMPLATES;
-  const cannotAddSelectedTemplate =
-    selectedTemplate?.kind === 'predefined' && hasReachedTemplateLimit;
-  const hasUnsavedExpenseFileChanges =
-    expenseFileContent !== savedExpenseFileContent;
-  const summaryTimezoneOptions = useMemo(() => {
-    const options = new Set(SUMMARY_TIMEZONE_OPTIONS);
-    if (summaryTimezone) {
-      options.add(summaryTimezone);
-    }
-    return Array.from(options);
-  }, [summaryTimezone]);
-  const formattedNextSummaryAt = useMemo(() => {
-    if (!nextSummaryAt) {
-      return null;
-    }
-    return new Date(nextSummaryAt).toLocaleString(locale);
-  }, [locale, nextSummaryAt]);
-  const canEnableSummarySchedule = Boolean(
-    activeTemplateId && (uploadedFilePath || nextcloudFilePath.trim()),
+  }, [activeId, selection]);
+  const previewHtml = useMemo(
+    () =>
+      showSamples
+        ? applyTemplatePreviewSamples(
+            displayedContent,
+            getExampleTemplateValues(user?.email, locale),
+          )
+        : displayedContent,
+    [displayedContent, locale, showSamples, user?.email],
   );
 
-  const selectPredefinedTemplate = useCallback(
-    (template: PredefinedTemplate) => {
-      setSelectedTemplateId(template.id);
-      setError(null);
-      setSuccess(null);
-    },
-    [],
-  );
-
-  const selectUserTemplate = useCallback((template: Template) => {
-    setSelectedTemplateId(template.id);
-    setError(null);
-    setSuccess(null);
-  }, []);
-
-  const resolveInitialSelection = useCallback(
-    (
-      userTemplates: Template[],
-      preferredTemplateId?: string | null,
-      currentActiveId?: string | null,
-    ) => {
-      if (preferredTemplateId) {
-        if (
-          isPredefinedTemplateId(preferredTemplateId) ||
-          userTemplates.some((t) => t.id === preferredTemplateId)
-        ) {
-          setSelectedTemplateId(preferredTemplateId);
-          return;
-        }
-      }
-
-      if (
-        currentActiveId &&
-        userTemplates.some((template) => template.id === currentActiveId)
-      ) {
-        setSelectedTemplateId(currentActiveId);
-        return;
-      }
-
-      if (userTemplates[0]) {
-        setSelectedTemplateId(userTemplates[0].id);
-        return;
-      }
-
-      const firstPredefined = getPredefinedTemplates(locale)[0];
-      if (firstPredefined) {
-        setSelectedTemplateId(firstPredefined.id);
-      }
-    },
-    [locale],
-  );
-
-  const loadDashboardData = useCallback(
-    async (preferredTemplateId?: string | null, signal?: AbortSignal) => {
-      if (!session?.access_token) {
-        setIsCheckingOnboarding(false);
-        return;
-      }
-
-      setError(null);
-      setIsLoadingDashboard(true);
-      try {
-        const dashboardData = await getTemplateDashboard(
-          session.access_token,
-          signal,
-        );
-        setTemplates(dashboardData.templates);
-        setActiveTemplateId(dashboardData.activeTemplateId);
-        setDataSourceType(dashboardData.dataSourceType);
-        setNextcloudFilePath(dashboardData.nextcloudFilePath ?? '');
-        const currentUploadedFilePath = dashboardData.uploadedFilePath ?? null;
-        setUploadedFilePath(currentUploadedFilePath);
-        setTestEmailRecipient((current) => current || user?.email || '');
-        resolveInitialSelection(
-          dashboardData.templates,
-          preferredTemplateId,
-          dashboardData.activeTemplateId,
-        );
-
-        const schedule = await getSummarySchedule(session.access_token);
-        setSummaryEnabled(schedule.enabled);
-        setSummaryScheduleDay(schedule.scheduleDay);
-        setSummaryScheduleHour(schedule.scheduleHour);
-        setSummaryTimezone(schedule.timezone);
-        setSummaryEmailLanguage(schedule.emailLanguage);
-        setNextSummaryAt(schedule.nextSummaryAt);
-      } catch (fetchError) {
-        if (signal?.aborted) {
-          return;
-        }
-        const message =
-          fetchError instanceof Error
-            ? fetchError.message
-            : t('dashboard.fetchDashboardError');
-        setError(message);
-      } finally {
-        if (!signal?.aborted) {
-          setIsLoadingDashboard(false);
-          setIsCheckingOnboarding(false);
-        }
-      }
-    },
-    [resolveInitialSelection, session?.access_token, t, user?.email],
-  );
-
-  const syncCurrentExpenseFile = useCallback(async (accessToken: string) => {
-    setIsLoadingCurrentExpenseFile(true);
+  const load = useCallback(async () => {
+    if (!session?.access_token) return;
+    setLoading(true);
     try {
-      const fileData = await getCurrentExpenseFile(accessToken);
-      setExpenseFileContent(fileData.content);
-      setSavedExpenseFileContent(fileData.content);
-      setUploadedFilePath(fileData.uploadedFilePath);
+      const data = await getTemplateDashboard(session.access_token);
+      setTemplates(data.templates);
+      setActiveId(data.activeTemplateId);
+      setSelectedId((current) =>
+        current && data.templates.some((item) => item.id === current)
+          ? current
+          : (data.activeTemplateId ??
+            data.templates[0]?.id ??
+            predefined[0]?.id ??
+            null),
+      );
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : t('dashboard.fetchDashboardError'),
+      );
     } finally {
-      setIsLoadingCurrentExpenseFile(false);
+      setLoading(false);
     }
-  }, []);
-
-  const loadCurrentExpenseFile = useCallback(async () => {
-    if (!session?.access_token || !uploadedFilePath) {
-      setExpenseFileContent('');
-      setSavedExpenseFileContent('');
-      return;
-    }
-
-    await syncCurrentExpenseFile(session.access_token);
-  }, [session?.access_token, syncCurrentExpenseFile, uploadedFilePath]);
+  }, [predefined, session?.access_token, t]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    void loadDashboardData(undefined, controller.signal);
-    return () => controller.abort();
-  }, [loadDashboardData]);
+    void load();
+  }, [load]);
 
-  useEffect(() => {
-    if (!session?.access_token || !uploadedFilePath) {
-      return;
-    }
-
-    void loadCurrentExpenseFile().catch((fetchError) => {
-      const message =
-        fetchError instanceof Error
-          ? fetchError.message
-          : t('dashboard.fetchFileError');
-      setError(message);
-    });
-  }, [loadCurrentExpenseFile, session?.access_token, t, uploadedFilePath]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    if (params.get('setup') === 'upload') {
-      setDataSourceType('FILE_UPLOAD');
-      setSuccess(t('dashboard.setupUploadSuccess'));
-    }
-  }, [location.search, t]);
-
-  const handleUseTemplate = async () => {
-    if (!session?.access_token || !selectedTemplate) {
-      return;
-    }
-
+  const run = async (action: () => Promise<void>, message: string) => {
+    setBusy(true);
     setError(null);
     setSuccess(null);
-    setIsApplyingTemplate(true);
-
     try {
-      if (selectedTemplate.kind === 'predefined') {
+      await action();
+      setSuccess(message);
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : t('dashboard.applyTemplateError'),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const chooseTemplate = (id: string) => {
+    setSelectedId(id);
+  };
+
+  const useSelected = () =>
+    void run(async () => {
+      if (!session?.access_token || !selection) return;
+      if (selection.kind === 'predefined') {
+        if (templates.length >= MAX_USER_TEMPLATES) {
+          throw new Error(
+            t('dashboard.templateLimitReached', {
+              max: MAX_USER_TEMPLATES,
+            }),
+          );
+        }
         const created = await createTemplate(
           session.access_token,
-          selectedTemplate.template.name,
-          selectedTemplate.template.content,
+          selection.template.name,
+          selection.template.content,
         );
-        await setActiveTemplateRequest(session.access_token, created.id);
-        await loadDashboardData(created.id);
-        setSuccess(t('dashboard.templateAddedActive'));
-        return;
+        await setActiveTemplate(session.access_token, created.id);
+        setSelectedId(created.id);
+      } else {
+        await setActiveTemplate(session.access_token, selection.template.id);
       }
+      await load();
+    }, t('dashboard.activeTemplateSet'));
 
-      if (selectedTemplate.template.id === activeTemplateId) {
-        setSuccess(t('dashboard.alreadyActive'));
-        return;
-      }
+  const useTemplateLabel = selectedTemplate?.isActiveUserTemplate
+    ? t('dashboard.templateActive')
+    : t('dashboard.useTemplate');
 
-      await setActiveTemplateRequest(
-        session.access_token,
-        selectedTemplate.template.id,
-      );
-      await loadDashboardData(selectedTemplate.template.id);
-      setSuccess(t('dashboard.activeTemplateSet'));
-    } catch (applyError) {
-      const message =
-        applyError instanceof Error
-          ? applyError.message
-          : t('dashboard.applyTemplateError');
-      setError(message);
-    } finally {
-      setIsApplyingTemplate(false);
+  const handleDeleteTemplate = (template: TemplateListItem) => {
+    if (
+      !session?.access_token ||
+      !window.confirm(t('dashboard.deleteConfirm', { name: template.name }))
+    ) {
+      return;
     }
+    void run(async () => {
+      await deleteTemplate(session.access_token, template.id);
+      await load();
+    }, t('dashboard.templateDeleted'));
   };
-
-  const handleDeleteTemplate = async (template: Template) => {
-    if (!session?.access_token) {
-      return;
-    }
-
-    const shouldDelete = window.confirm(
-      t('dashboard.deleteConfirm', { name: template.name }),
-    );
-    if (!shouldDelete) {
-      return;
-    }
-
-    setError(null);
-    setSuccess(null);
-    try {
-      await deleteTemplateRequest(session.access_token, template.id);
-      await loadDashboardData();
-      setSuccess(t('dashboard.templateDeleted'));
-    } catch (deleteError) {
-      const message =
-        deleteError instanceof Error
-          ? deleteError.message
-          : t('dashboard.deleteTemplateError');
-      setError(message);
-    }
-  };
-
-  const handleSaveNextcloudPath = async (
-    event: React.FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
-    if (!session?.access_token) {
-      return;
-    }
-
-    setError(null);
-    setSuccess(null);
-    setIsSavingPath(true);
-    try {
-      await updateDataSource(
-        session.access_token,
-        'NEXTCLOUD',
-        nextcloudFilePath,
-      );
-      await loadDashboardData(selectedTemplateId);
-      setSuccess(t('dashboard.nextcloudSaved'));
-    } catch (savePathError) {
-      const message =
-        savePathError instanceof Error
-          ? savePathError.message
-          : t('dashboard.dataSourceSaveError');
-      setError(message);
-    } finally {
-      setIsSavingPath(false);
-    }
-  };
-
-  const handleSelectDataSource = async (type: DataSourceType) => {
-    if (!session?.access_token) {
-      return;
-    }
-
-    if (type === 'NEXTCLOUD' && !featureFlags.nextcloud) {
-      return;
-    }
-
-    setError(null);
-    setSuccess(null);
-    setDataSourceType(type);
-
-    if (type === 'FILE_UPLOAD' && uploadedFilePath) {
-      try {
-        await updateDataSource(session.access_token, 'FILE_UPLOAD');
-        await loadDashboardData(selectedTemplateId);
-        setSuccess(t('dashboard.switchedToUpload'));
-      } catch (switchError) {
-        const message =
-          switchError instanceof Error
-            ? switchError.message
-            : t('dashboard.dataSourceSwitchError');
-        setError(message);
-      }
-    }
-  };
-
-  const handleUploadExpenseFile = async (
-    event: React.FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
-    if (!session?.access_token || !selectedExpenseFile) {
-      return;
-    }
-
-    setError(null);
-    setSuccess(null);
-    setIsUploadingExpenseFile(true);
-    try {
-      await uploadExpenseFile(session.access_token, selectedExpenseFile);
-      setSelectedExpenseFile(null);
-      await loadDashboardData(selectedTemplateId);
-      await syncCurrentExpenseFile(session.access_token);
-      setDataSourceType('FILE_UPLOAD');
-      setSuccess(t('dashboard.fileUploaded'));
-    } catch (uploadError) {
-      const message =
-        uploadError instanceof Error
-          ? uploadError.message
-          : t('dashboard.uploadError');
-      setError(message);
-    } finally {
-      setIsUploadingExpenseFile(false);
-    }
-  };
-
-  const handleRefreshExpenseFile = async () => {
-    setError(null);
-    setSuccess(null);
-    try {
-      await loadCurrentExpenseFile();
-      setSuccess(t('dashboard.fileRefreshed'));
-    } catch (refreshError) {
-      const message =
-        refreshError instanceof Error
-          ? refreshError.message
-          : t('dashboard.refreshError');
-      setError(message);
-    }
-  };
-
-  const handleSaveExpenseFile = async (
-    event: React.FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
-    if (!session?.access_token) {
-      return;
-    }
-
-    if (!uploadedFilePath && !expenseFileContent.trim()) {
-      return;
-    }
-
-    setError(null);
-    setSuccess(null);
-    setIsSavingCurrentExpenseFile(true);
-    try {
-      await overwriteCurrentExpenseFile(
-        session.access_token,
-        expenseFileContent,
-        uploadedFilePath,
-      );
-      await loadDashboardData(selectedTemplateId);
-      await syncCurrentExpenseFile(session.access_token);
-      setSuccess(t('dashboard.expenseFileSaved'));
-    } catch (saveFileError) {
-      const message =
-        saveFileError instanceof Error
-          ? saveFileError.message
-          : t('dashboard.saveFileError');
-      setError(message);
-    } finally {
-      setIsSavingCurrentExpenseFile(false);
-    }
-  };
-
-  const handleSendTestEmail = async (
-    event: React.FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
-    if (!session?.access_token) {
-      return;
-    }
-
-    setError(null);
-    setSuccess(null);
-    setIsSendingTestEmail(true);
-    try {
-      await sendTestEmailRequest(session.access_token, testEmailRecipient);
-      setSuccess(
-        t('dashboard.testEmailSent', { email: testEmailRecipient.trim() }),
-      );
-    } catch (sendError) {
-      const message =
-        sendError instanceof Error
-          ? sendError.message
-          : t('dashboard.testEmailError');
-      setError(message);
-    } finally {
-      setIsSendingTestEmail(false);
-    }
-  };
-
-  const handleSaveSummarySchedule = async (
-    event: React.FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
-    if (!session?.access_token) {
-      return;
-    }
-
-    setError(null);
-    setSuccess(null);
-    setIsSavingSummarySchedule(true);
-    try {
-      const schedule = await updateSummarySchedule(session.access_token, {
-        enabled: summaryEnabled,
-        scheduleDay: summaryScheduleDay,
-        scheduleHour: summaryScheduleHour,
-        timezone: summaryTimezone,
-        emailLanguage: summaryEmailLanguage,
-        nextSummaryAt,
-      });
-      setSummaryEnabled(schedule.enabled);
-      setSummaryScheduleDay(schedule.scheduleDay);
-      setSummaryScheduleHour(schedule.scheduleHour);
-      setSummaryTimezone(schedule.timezone);
-      setSummaryEmailLanguage(schedule.emailLanguage);
-      setNextSummaryAt(schedule.nextSummaryAt);
-      setSuccess(t('dashboard.summaryScheduleSaved'));
-    } catch (saveScheduleError) {
-      const message =
-        saveScheduleError instanceof Error
-          ? saveScheduleError.message
-          : t('dashboard.summaryScheduleError');
-      setError(message);
-    } finally {
-      setIsSavingSummarySchedule(false);
-    }
-  };
-
-  if (isCheckingOnboarding) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <SpendwellLogo size="md" inheritBackground={true} />
-            </div>
-            <div className="flex items-center gap-4">
-              <LanguageSwitcher />
-              <span className="text-sm text-gray-500">{user?.email}</span>
-              <button
-                onClick={() => signOut()}
-                className="inline-flex items-center gap-2 px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-              >
-                <LogOut className="h-4 w-4" />
-                {t('common.logout')}
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+    <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <DashboardHeader
+        title={t('navigation.dashboard')}
+        subtitle={t('dashboard.overviewSubtitle')}
+        openSettingsLabel={t('dashboard.openSettings')}
+        showUploadSuccess={showUploadSuccess}
+        setupUploadSuccessLabel={t('dashboard.setupUploadSuccess')}
+        dataSourceTitle={t('dashboard.dataSourceTitle')}
+      />
+      <DashboardAlerts error={error} success={success} />
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0 space-y-6">
-          {error && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-          {success && (
-            <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
-              {success}
-            </div>
-          )}
+      <ExpenseSourcePanel />
 
-          <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {t('dashboard.dataSourceTitle')}
-                </h2>
-                <p className="mt-1 text-sm text-gray-600">
-                  {featureFlags.nextcloud
-                    ? t('dashboard.dataSourceDesc')
-                    : t('dashboard.dataSourceDescUploadOnly')}
-                </p>
-              </div>
-              <Link
-                to="/receipt-scan"
-                className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
-              >
-                <ScanSearch className="h-4 w-4" />
-                {t('dashboard.scanReceipt')}
-              </Link>
-            </div>
-            {featureFlags.nextcloud ? (
-              <div className="mt-4 inline-flex rounded-md border border-gray-200 bg-gray-50 p-1">
-                <button
-                  type="button"
-                  onClick={() => void handleSelectDataSource('FILE_UPLOAD')}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                    dataSourceType === 'FILE_UPLOAD'
-                      ? 'bg-white text-blue-700 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  {t('dashboard.uploadFile')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleSelectDataSource('NEXTCLOUD')}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                    dataSourceType === 'NEXTCLOUD'
-                      ? 'bg-white text-blue-700 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Nextcloud
-                </button>
-              </div>
-            ) : null}
+      <div className="mt-6 grid gap-6 lg:grid-cols-[320px_1fr]">
+        <TemplateSidebar
+          templatesTitle={t('dashboard.templatesTitle')}
+          userTemplatesCountLabel={t('dashboard.userTemplatesCount', {
+            count: templates.length,
+            max: MAX_USER_TEMPLATES,
+          })}
+          generateNewLabel={t('dashboard.generateNew')}
+          myTemplatesLabel={t('dashboard.myTemplates')}
+          predefinedLabel={t('dashboard.predefined')}
+          loadingTemplatesLabel={t('dashboard.loadingTemplates')}
+          loading={loading}
+          userTemplates={templates}
+          predefinedTemplates={predefined}
+          selectedId={selectedId}
+          activeId={activeId}
+          onSelectTemplate={chooseTemplate}
+          onDeleteTemplate={handleDeleteTemplate}
+        />
 
-            {dataSourceType === 'FILE_UPLOAD' || !featureFlags.nextcloud ? (
-              <div className="mt-4 space-y-3">
-                <form
-                  onSubmit={handleUploadExpenseFile}
-                  className="flex flex-col gap-3 sm:flex-row"
-                >
-                  <input
-                    type="file"
-                    accept=".txt,.csv,text/plain,text/csv"
-                    onChange={(event) =>
-                      setSelectedExpenseFile(event.target.files?.[0] ?? null)
-                    }
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  />
-                  <button
-                    type="submit"
-                    disabled={isUploadingExpenseFile || !selectedExpenseFile}
-                    className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isUploadingExpenseFile
-                      ? t('common.uploading')
-                      : t('common.upload')}
-                  </button>
-                </form>
-                <div className="space-y-3">
-                  {uploadedFilePath ? (
-                    <p className="text-xs text-gray-600">
-                      {t('dashboard.currentFile')}{' '}
-                      <span className="font-medium">{uploadedFilePath}</span>
-                    </p>
-                  ) : (
-                    <p className="text-xs text-gray-600">
-                      {t('dashboard.noUploadedFile')}
-                    </p>
-                  )}
-                  <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <p className="text-xs font-medium text-gray-700">
-                        {t('dashboard.filePreviewTitle')}
-                      </p>
-                      {uploadedFilePath ? (
-                        <button
-                          type="button"
-                          onClick={() => void handleRefreshExpenseFile()}
-                          disabled={
-                            isLoadingCurrentExpenseFile ||
-                            isSavingCurrentExpenseFile
-                          }
-                          className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          <RefreshCw className="h-3.5 w-3.5" />
-                          {t('common.refresh')}
-                        </button>
-                      ) : null}
-                    </div>
-                    {isLoadingCurrentExpenseFile ? (
-                      <p className="text-xs text-gray-500">
-                        {t('dashboard.loadingFile')}
-                      </p>
-                    ) : (
-                      <form
-                        onSubmit={handleSaveExpenseFile}
-                        className="space-y-2"
-                      >
-                        <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-                          {t('dashboard.expenseFileFormatHint')}
-                        </p>
-                        <textarea
-                          value={expenseFileContent}
-                          onChange={(event) =>
-                            setExpenseFileContent(event.target.value)
-                          }
-                          placeholder={t(
-                            'dashboard.expenseTextareaPlaceholder',
-                          )}
-                          rows={10}
-                          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-xs text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                        />
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p
-                            className={`text-xs ${
-                              hasUnsavedExpenseFileChanges
-                                ? 'text-amber-700'
-                                : 'text-gray-500'
-                            }`}
-                          >
-                            {hasUnsavedExpenseFileChanges
-                              ? t('dashboard.unsavedFileChanges')
-                              : uploadedFilePath
-                                ? t('dashboard.fileSaved')
-                                : t('dashboard.noFileYetHint')}
-                          </p>
-                          <button
-                            type="submit"
-                            disabled={
-                              isSavingCurrentExpenseFile ||
-                              isLoadingCurrentExpenseFile ||
-                              !hasUnsavedExpenseFileChanges ||
-                              (!uploadedFilePath && !expenseFileContent.trim())
-                            }
-                            className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            <Save className="h-3.5 w-3.5" />
-                            {isSavingCurrentExpenseFile
-                              ? t('common.saving')
-                              : uploadedFilePath
-                                ? t('dashboard.saveChanges')
-                                : t('dashboard.createExpenseFile')}
-                          </button>
-                        </div>
-                      </form>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <form
-                onSubmit={handleSaveNextcloudPath}
-                className="mt-4 flex flex-col gap-3 sm:flex-row"
-              >
-                <input
-                  value={nextcloudFilePath}
-                  onChange={(event) => setNextcloudFilePath(event.target.value)}
-                  placeholder="/shared/wydatki/2026-06.txt"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                />
-                <button
-                  type="submit"
-                  disabled={isSavingPath}
-                  className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSavingPath ? t('common.saving') : t('common.save')}
-                </button>
-              </form>
-            )}
-          </section>
-
-          <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-gray-900">
-              <CalendarClock className="h-5 w-5" />
-              {t('dashboard.summaryScheduleTitle')}
-            </h2>
-            <p className="mt-1 text-sm text-gray-600">
-              {t('dashboard.summaryScheduleDesc')}
-            </p>
-            <form
-              onSubmit={handleSaveSummarySchedule}
-              className="mt-4 space-y-4"
-            >
-              <label className="flex items-center gap-2 text-sm text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={summaryEnabled}
-                  onChange={(event) => setSummaryEnabled(event.target.checked)}
-                  disabled={!canEnableSummarySchedule}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                {t('dashboard.summaryEnabledLabel')}
-              </label>
-
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <label className="block text-sm text-gray-700">
-                  <span className="mb-1 block">
-                    {t('dashboard.summaryDayLabel')}
-                  </span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={28}
-                    value={summaryScheduleDay}
-                    onChange={(event) =>
-                      setSummaryScheduleDay(Number(event.target.value))
-                    }
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                  />
-                </label>
-                <label className="block text-sm text-gray-700">
-                  <span className="mb-1 block">
-                    {t('dashboard.summaryHourLabel')}
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={23}
-                    value={summaryScheduleHour}
-                    onChange={(event) =>
-                      setSummaryScheduleHour(Number(event.target.value))
-                    }
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                  />
-                </label>
-                <label className="block text-sm text-gray-700">
-                  <span className="mb-1 block">
-                    {t('dashboard.summaryTimezoneLabel')}
-                  </span>
-                  <select
-                    value={summaryTimezone}
-                    onChange={(event) => setSummaryTimezone(event.target.value)}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                  >
-                    {summaryTimezoneOptions.map((timezone) => (
-                      <option key={timezone} value={timezone}>
-                        {timezone}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block text-sm text-gray-700">
-                  <span className="mb-1 block">
-                    {t('dashboard.summaryEmailLanguageLabel')}
-                  </span>
-                  <select
-                    value={summaryEmailLanguage}
-                    onChange={(event) =>
-                      setSummaryEmailLanguage(event.target.value as 'PL' | 'EN')
-                    }
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                  >
-                    <option value="PL">
-                      {t('dashboard.summaryLanguagePol')}
-                    </option>
-                    <option value="EN">
-                      {t('dashboard.summaryLanguageEng')}
-                    </option>
-                  </select>
-                </label>
-              </div>
-
-              {formattedNextSummaryAt && (
-                <p className="text-xs text-gray-500">
-                  {t('dashboard.summaryNextSendLabel')}:{' '}
-                  {formattedNextSummaryAt}
-                </p>
-              )}
-
-              {!canEnableSummarySchedule && (
-                <p className="text-xs text-amber-700">
-                  {t('dashboard.summaryRequirementsHint')}
-                </p>
-              )}
-
-              <button
-                type="submit"
-                disabled={isSavingSummarySchedule}
-                className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSavingSummarySchedule
-                  ? t('common.saving')
-                  : t('common.save')}
-              </button>
-            </form>
-          </section>
-
-          <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">
-              {t('dashboard.testEmailTitle')}
-            </h2>
-            <p className="mt-1 text-sm text-gray-600">
-              {t('dashboard.testEmailDesc')}
-            </p>
-            <form
-              onSubmit={handleSendTestEmail}
-              className="mt-4 flex flex-col gap-3 sm:flex-row"
-            >
-              <input
-                type="email"
-                value={testEmailRecipient}
-                onChange={(event) => setTestEmailRecipient(event.target.value)}
-                placeholder={t('dashboard.emailPlaceholder')}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-              />
-              <button
-                type="submit"
-                disabled={
-                  isSendingTestEmail ||
-                  !activeTemplateId ||
-                  !testEmailRecipient.trim()
-                }
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Mail className="h-4 w-4" />
-                {isSendingTestEmail ? t('common.sending') : t('common.send')}
-              </button>
-            </form>
-            {!activeTemplateId && (
-              <p className="mt-2 text-xs text-amber-700">
-                {t('dashboard.noActiveTemplate')}
-              </p>
-            )}
-          </section>
-
-          <div className="grid gap-6 lg:grid-cols-3">
-            <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm lg:col-span-1">
-              <div className="mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {t('dashboard.templatesTitle')}
-                </h2>
-                <p className="mt-1 text-xs text-gray-500">
-                  {t('dashboard.templatesDesc')}
-                </p>
-                <p className="mt-1 text-xs text-gray-500">
-                  {t('dashboard.userTemplatesCount', {
-                    count: templates.length,
-                    max: MAX_USER_TEMPLATES,
-                  })}
-                </p>
-                {hasReachedTemplateLimit && (
-                  <p className="mt-2 text-xs text-amber-700">
-                    {t('dashboard.templateLimitReached', {
-                      max: MAX_USER_TEMPLATES,
-                    })}
-                  </p>
-                )}
-              </div>
-
-              <div className="mb-4">
-                <h3 className="mb-2 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-purple-700">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  {t('dashboard.predefined')}
-                </h3>
-                <div className="space-y-2">
-                  {predefinedTemplates.map((template) => (
-                    <div
-                      key={template.id}
-                      className={`rounded-md border p-3 ${
-                        selectedTemplateId === template.id
-                          ? 'border-purple-400 bg-purple-50'
-                          : 'border-purple-100 bg-purple-50/30'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => selectPredefinedTemplate(template)}
-                        className="w-full text-left"
-                      >
-                        <p className="text-sm font-medium text-gray-900">
-                          {template.name}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-600 line-clamp-2">
-                          {template.description}
-                        </p>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  {t('dashboard.myTemplates')}
-                </h3>
-                {isLoadingDashboard ? (
-                  <p className="text-sm text-gray-500">
-                    {t('dashboard.loadingTemplates')}
-                  </p>
-                ) : templates.length === 0 ? (
-                  <p className="text-xs text-gray-500">
-                    {t('dashboard.noUserTemplates')}{' '}
-                    <Link
-                      to="/onboarding"
-                      className="text-blue-600 underline hover:text-blue-800"
-                    >
-                      {t('dashboard.generateNew')}
-                    </Link>
-                    .
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {templates.map((template) => (
-                      <div
-                        key={template.id}
-                        className={`rounded-md border p-3 ${
-                          selectedTemplateId === template.id
-                            ? 'border-blue-400 bg-blue-50'
-                            : 'border-gray-200 bg-white'
-                        }`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => selectUserTemplate(template)}
-                          className="w-full text-left"
-                        >
-                          <p className="text-sm font-medium text-gray-900">
-                            {template.name}
-                          </p>
-                          {activeTemplateId === template.id && (
-                            <p className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-700">
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              {t('common.active')}
-                            </p>
-                          )}
-                        </button>
-                        <div className="mt-3">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteTemplate(template)}
-                            className="rounded-md border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
-                          >
-                            <span className="inline-flex items-center gap-1">
-                              <Trash2 className="h-3.5 w-3.5" />
-                              {t('common.delete')}
-                            </span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-4 border-t border-gray-100 pt-4">
-                {hasReachedTemplateLimit ? (
-                  <p className="text-center text-xs text-amber-700">
-                    {t('dashboard.deleteTemplateToGenerate')}
-                  </p>
-                ) : (
-                  <Link
-                    to="/onboarding"
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    {t('dashboard.generateNewTemplate')}
-                  </Link>
-                )}
-              </div>
-            </section>
-
-            <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm lg:col-span-2">
-              <div className="mb-4 flex items-center gap-2">
-                <Eye className="h-4 w-4 text-blue-600" />
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {t('dashboard.previewTitle')}
-                </h2>
-              </div>
-
-              {!selectedTemplate ? (
-                <div className="flex h-64 items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-500">
-                  {t('dashboard.selectTemplateHint')}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900">
-                      {selectedTemplate.template.name}
-                    </h3>
-                    {selectedTemplate.kind === 'predefined' && (
-                      <p className="mt-1 text-sm text-gray-600">
-                        {selectedTemplate.template.description}
-                      </p>
-                    )}
-                    {isSelectedTemplateActive && (
-                      <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        {t('dashboard.activeTemplateNote')}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-sm font-medium text-gray-700">
-                        {t('dashboard.emailPreviewLabel')}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <div className="inline-flex items-center rounded-md border border-gray-300 bg-gray-50 p-0.5">
-                          <button
-                            type="button"
-                            aria-pressed={previewMode === 'web'}
-                            aria-label={t('dashboard.previewModeWebAria')}
-                            onClick={() => setPreviewMode('web')}
-                            className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm font-medium transition-colors ${
-                              previewMode === 'web'
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                          >
-                            <Monitor className="h-4 w-4" />
-                            {t('dashboard.previewModeWeb')}
-                          </button>
-                          <button
-                            type="button"
-                            aria-pressed={previewMode === 'mobile'}
-                            aria-label={t('dashboard.previewModeMobileAria')}
-                            onClick={() => setPreviewMode('mobile')}
-                            className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm font-medium transition-colors ${
-                              previewMode === 'mobile'
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                          >
-                            <Smartphone className="h-4 w-4" />
-                            {t('dashboard.previewModeMobile')}
-                          </button>
-                        </div>
-                        <label className="inline-flex cursor-pointer items-center gap-2.5">
-                          <span className="text-sm text-gray-600">
-                            {t('dashboard.exampleData')}
-                          </span>
-                          <button
-                            type="button"
-                            role="switch"
-                            aria-checked={showExamplePreview}
-                            aria-label={t('dashboard.exampleDataAria')}
-                            onClick={() =>
-                              setShowExamplePreview((current) => !current)
-                            }
-                            className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                              showExamplePreview ? 'bg-blue-600' : 'bg-gray-300'
-                            }`}
-                          >
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                                showExamplePreview
-                                  ? 'translate-x-6'
-                                  : 'translate-x-1'
-                              }`}
-                            />
-                          </button>
-                        </label>
-                      </div>
-                    </div>
-                    {showExamplePreview && (
-                      <p className="mb-2 text-xs text-gray-500">
-                        {t('dashboard.exampleDataHint')}
-                      </p>
-                    )}
-                    {previewMode === 'mobile' && (
-                      <p className="mb-2 inline-flex items-center gap-1.5 text-xs text-gray-500">
-                        <Hand className="h-3.5 w-3.5" />
-                        {t('dashboard.previewModeMobileDragHint')}
-                      </p>
-                    )}
-                    <div
-                      className={
-                        previewMode === 'mobile'
-                          ? 'flex justify-center overflow-auto rounded-md border border-gray-300 bg-gray-100 py-6'
-                          : 'overflow-hidden rounded-md border border-gray-300'
-                      }
-                    >
-                      {previewMode === 'mobile' ? (
-                        <div className="relative h-[min(820px,75vh)] w-[390px] max-w-full flex-shrink-0">
-                          <iframe
-                            ref={mobilePreviewIframeRef}
-                            title="Template HTML preview"
-                            srcDoc={previewHtml}
-                            className="h-full w-full rounded-[28px] border-4 border-gray-800 bg-white shadow-lg"
-                            sandbox="allow-same-origin"
-                          />
-                          <div
-                            ref={mobileDragOverlayRef}
-                            role="presentation"
-                            aria-label={t(
-                              'dashboard.previewModeMobileDragHint',
-                            )}
-                            onPointerDown={handleMobilePreviewPointerDown}
-                            onPointerMove={handleMobilePreviewPointerMove}
-                            onPointerUp={handleMobilePreviewPointerUp}
-                            onPointerCancel={handleMobilePreviewPointerUp}
-                            className="absolute inset-0 touch-none cursor-grab select-none rounded-[24px]"
-                          />
-                        </div>
-                      ) : (
-                        <iframe
-                          title="Template HTML preview"
-                          srcDoc={previewHtml}
-                          className="h-[min(920px,75vh)] w-full bg-white"
-                          sandbox="allow-same-origin"
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4">
-                    <button
-                      type="button"
-                      onClick={() => void handleUseTemplate()}
-                      disabled={
-                        isApplyingTemplate ||
-                        isSelectedTemplateActive ||
-                        cannotAddSelectedTemplate
-                      }
-                      className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isApplyingTemplate
-                        ? t('dashboard.applying')
-                        : isSelectedTemplateActive
-                          ? t('dashboard.templateActive')
-                          : t('dashboard.useTemplate')}
-                    </button>
-                    {cannotAddSelectedTemplate && (
-                      <p className="text-xs text-amber-700">
-                        {t('dashboard.predefinedLimitHint', {
-                          max: MAX_USER_TEMPLATES,
-                        })}
-                      </p>
-                    )}
-                    {!hasReachedTemplateLimit && (
-                      <Link
-                        to="/onboarding"
-                        className="text-sm text-blue-600 underline hover:text-blue-800"
-                      >
-                        {t('dashboard.generateOtherAi')}
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              )}
-            </section>
-          </div>
-        </div>
-      </main>
-    </div>
+        <TemplatePreviewPanel
+          selection={selectedTemplate}
+          busy={busy}
+          onUseTemplate={useSelected}
+          useTemplateLabel={useTemplateLabel}
+          selectTemplateHintLabel={t('dashboard.selectTemplateHint')}
+          activeTemplateNoteLabel={t('dashboard.activeTemplateNote')}
+          previewMode={previewMode}
+          onPreviewModeChange={(mode) => setPreviewMode(mode)}
+          showSamples={showSamples}
+          onShowSamplesChange={(checked) => setShowSamples(checked)}
+          exampleDataLabel={t('dashboard.exampleData')}
+          previewModeWebLabel={t('dashboard.previewModeWeb')}
+          previewModeMobileLabel={t('dashboard.previewModeMobile')}
+          previewTitle={t('dashboard.previewTitle')}
+          previewHtml={previewHtml}
+        />
+      </div>
+    </main>
   );
 }

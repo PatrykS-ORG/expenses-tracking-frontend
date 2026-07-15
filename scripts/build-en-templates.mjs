@@ -8,6 +8,11 @@ const pl = JSON.parse(
 );
 
 const meta = {
+  'predefined-expense-summary': {
+    name: 'Summary — green fintech',
+    description:
+      'Friendly monthly summary template in a dark-green palette: salary, expenses, difference, category breakdown with percentage bars relative to salary, and a short text summary.',
+  },
   'predefined-editorial': {
     name: 'Editorial — premium minimalism',
     description:
@@ -32,6 +37,19 @@ const meta = {
 
 const contentReplacements = [
   ['lang="pl"', 'lang="en"'],
+  // predefined-expense-summary specific strings.
+  // "Podsumowanie wydatków" must run before the generic "Podsumowanie" -> "Summary".
+  ['Podsumowanie wydatków', 'Expense summary'],
+  ['miesięczny przegląd finansów', 'monthly financial overview'],
+  ['Różnica', 'Difference'],
+  [
+    'Wiadomość wygenerowana automatycznie przez Spendwell application.',
+    'This message was generated automatically by the Spendwell application.',
+  ],
+  [
+    'Masz pytania? Zaloguj się do aplikacji, aby zarządzać swoimi szablonami i harmonogramem.',
+    'Questions? Log in to the app to manage your templates and schedule.',
+  ],
   ['Twój miesiąc w pigułce', 'Your month at a glance'],
   ['Podsumowanie miesiąca', 'Monthly summary'],
   ['Podsumowanie', 'Summary'],
