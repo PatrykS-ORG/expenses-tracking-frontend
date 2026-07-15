@@ -10,6 +10,8 @@ import { Auth } from './components/Auth';
 import { Dashboard } from './pages/Dashboard';
 import { Onboarding } from './pages/Onboarding';
 import { ReceiptScanner } from './pages/ReceiptScanner';
+import { Settings } from './pages/Settings';
+import { AppLayout } from './components/AppLayout';
 
 export default function App() {
   const { session, isLoading, initialize } = useAuthStore();
@@ -30,20 +32,20 @@ export default function App() {
     <Router>
       <Routes>
         <Route
-          path="/"
-          element={session ? <Dashboard /> : <Navigate to="/auth" />}
-        />
-        <Route
           path="/auth"
           element={!session ? <Auth /> : <Navigate to="/" />}
         />
         <Route
-          path="/onboarding"
-          element={session ? <Onboarding /> : <Navigate to="/auth" />}
-        />
+          element={session ? <AppLayout /> : <Navigate to="/auth" replace />}
+        >
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/receipt-scan" element={<ReceiptScanner />} />
+          <Route path="/settings" element={<Settings />} />
+        </Route>
         <Route
-          path="/receipt-scan"
-          element={session ? <ReceiptScanner /> : <Navigate to="/auth" />}
+          path="*"
+          element={<Navigate to={session ? '/' : '/auth'} replace />}
         />
       </Routes>
     </Router>

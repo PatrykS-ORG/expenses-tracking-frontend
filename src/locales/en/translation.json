@@ -12,7 +12,13 @@
     "active": "Active",
     "processing": "Processing...",
     "backToDashboard": "Back to dashboard",
-    "backToDashboardShort": "Back to dashboard"
+    "backToDashboardShort": "Back to dashboard",
+    "cancel": "Cancel"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "receipts": "Receipts",
+    "settings": "Settings"
   },
   "auth": {
     "signIn": "Sign in",
@@ -174,6 +180,30 @@
     "summaryScheduleError": "Failed to save summary schedule",
     "summaryRequirementsHint": "Set an active template and configure a data source before enabling automatic summaries.",
     "fetchDashboardError": "Failed to fetch dashboard data",
-    "fetchFileError": "Failed to fetch file content"
+    "fetchFileError": "Failed to fetch file content",
+    "overviewSubtitle": "Choose and customize the email template used for your monthly summary.",
+    "openSettings": "Open settings"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your account and monthly summary preferences.",
+    "account": "Account",
+    "source": "Expense source",
+    "summary": "Summary emails",
+    "profile": "Profile and security",
+    "oauthManagedAccount": "This account uses an OAuth provider. Password changes and account deletion are managed by that provider.",
+    "currentPassword": "Current password",
+    "currentPasswordInvalid": "The current password is incorrect.",
+    "newPassword": "New password",
+    "changePassword": "Change password",
+    "passwordUpdated": "Password updated.",
+    "dangerZone": "Danger zone",
+    "deleteDescription": "Deleting your account permanently removes its templates, summary history, and uploaded expense file. Enter {{email}} to confirm.",
+    "deleteAccount": "Delete my account",
+    "currency": "Report currency",
+    "sendSummaryNow": "Send current expense summary",
+    "sendSummaryNowDescription": "Analyze the current expense file and send the resulting summary to {{email}}. This does not change the automatic schedule.",
+    "summarySent": "The current expense summary was sent.",
+    "saveError": "Failed to save settings"
   }
 }

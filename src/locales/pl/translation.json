@@ -12,7 +12,13 @@
     "active": "Aktywny",
     "processing": "Przetwarzanie...",
     "backToDashboard": "Wróć do panelu",
-    "backToDashboardShort": "Wróć do dashboardu"
+    "backToDashboardShort": "Wróć do dashboardu",
+    "cancel": "Anuluj"
+  },
+  "navigation": {
+    "dashboard": "Panel",
+    "receipts": "Paragony",
+    "settings": "Ustawienia"
   },
   "auth": {
     "signIn": "Zaloguj się",
@@ -174,6 +180,30 @@
     "summaryScheduleError": "Nie udało się zapisać harmonogramu",
     "summaryRequirementsHint": "Ustaw aktywny szablon i skonfiguruj źródło danych, aby włączyć automatyczne podsumowania.",
     "fetchDashboardError": "Nie udało się pobrać danych dashboardu",
-    "fetchFileError": "Nie udało się pobrać treści pliku"
+    "fetchFileError": "Nie udało się pobrać treści pliku",
+    "overviewSubtitle": "Wybierz i dostosuj szablon e-maila używany w miesięcznym podsumowaniu.",
+    "openSettings": "Otwórz ustawienia"
+  },
+  "settings": {
+    "title": "Ustawienia",
+    "subtitle": "Zarządzaj kontem i preferencjami miesięcznych podsumowań.",
+    "account": "Konto",
+    "source": "Źródło wydatków",
+    "summary": "E-maile z podsumowaniem",
+    "profile": "Profil i bezpieczeństwo",
+    "oauthManagedAccount": "To konto korzysta z dostawcy OAuth. Zmiana hasła i usunięcie konta są zarządzane przez tego dostawcę.",
+    "currentPassword": "Aktualne hasło",
+    "currentPasswordInvalid": "Aktualne hasło jest nieprawidłowe.",
+    "newPassword": "Nowe hasło",
+    "changePassword": "Zmień hasło",
+    "passwordUpdated": "Hasło zostało zmienione.",
+    "dangerZone": "Usunięcie konta",
+    "deleteDescription": "Usunięcie konta trwale usuwa szablony, historię podsumowań i przesłany plik wydatków. Wpisz {{email}}, aby potwierdzić.",
+    "deleteAccount": "Usuń moje konto",
+    "currency": "Waluta raportu",
+    "sendSummaryNow": "Wyślij bieżące podsumowanie wydatków",
+    "sendSummaryNowDescription": "Przeanalizuj aktualny plik wydatków i wyślij podsumowanie na adres {{email}}. Nie zmieni to harmonogramu automatycznej wysyłki.",
+    "summarySent": "Bieżące podsumowanie wydatków zostało wysłane.",
+    "saveError": "Nie udało się zapisać ustawień"
   }
 }

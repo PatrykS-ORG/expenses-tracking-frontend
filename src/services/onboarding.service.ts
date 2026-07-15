@@ -28,6 +28,14 @@ export interface DashboardData {
 }
 
 export type SummaryEmailLanguage = 'PL' | 'EN';
+export type SummaryCurrency =
+  | 'PLN'
+  | 'EUR'
+  | 'USD'
+  | 'GBP'
+  | 'CHF'
+  | 'CZK'
+  | 'UAH';
 
 export interface SummaryScheduleSettings {
   enabled: boolean;
@@ -35,6 +43,7 @@ export interface SummaryScheduleSettings {
   scheduleHour: number;
   timezone: string;
   emailLanguage: SummaryEmailLanguage;
+  currency: SummaryCurrency;
   nextSummaryAt: string | null;
 }
 
@@ -435,6 +444,21 @@ export async function sendTestEmail(
   }
 }
 
+export async function sendSummaryNow(accessToken: string): Promise<void> {
+  const data = await graphqlRequest<{ sendSummaryNow?: boolean }>(
+    accessToken,
+    `
+      mutation SendSummaryNow {
+        sendSummaryNow
+      }
+    `,
+  );
+
+  if (!data.sendSummaryNow) {
+    throw new Error('Failed to send expense summary');
+  }
+}
+
 export async function getSummarySchedule(
   accessToken: string,
 ): Promise<SummaryScheduleSettings> {
@@ -450,6 +474,7 @@ export async function getSummarySchedule(
           scheduleHour
           timezone
           emailLanguage
+          currency
           nextSummaryAt
         }
       }
@@ -479,6 +504,7 @@ export async function updateSummarySchedule(
           scheduleHour
           timezone
           emailLanguage
+          currency
           nextSummaryAt
         }
       }
@@ -490,6 +516,7 @@ export async function updateSummarySchedule(
         scheduleHour: input.scheduleHour,
         timezone: input.timezone,
         emailLanguage: input.emailLanguage,
+        currency: input.currency,
       },
     },
   );
@@ -543,4 +570,19 @@ export async function approveReceiptExpenses(
     `,
     { input: { text: trimmedText } },
   );
+}
+
+export async function deleteMyAccount(accessToken: string): Promise<void> {
+  const data = await graphqlRequest<{ deleteMyAccount?: boolean }>(
+    accessToken,
+    `
+      mutation DeleteMyAccount {
+        deleteMyAccount
+      }
+    `,
+  );
+
+  if (!data.deleteMyAccount) {
+    throw new Error('Failed to delete account');
+  }
 }
