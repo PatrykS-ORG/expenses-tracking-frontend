@@ -1,26 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import {
-  ArrowLeft,
-  ImagePlus,
-  LogOut,
-  Save,
-  ScanSearch,
-  Wallet,
-} from 'lucide-react';
+import { ArrowLeft, ImagePlus, Save, ScanSearch } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import {
   approveReceiptExpenses,
   scanReceipt,
 } from '../services/onboarding.service';
-import { LanguageSwitcher } from '../components/LanguageSwitcher';
-import { APP_NAME } from '../lib/constants';
 
 export function ReceiptScanner() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user, session, signOut } = useAuthStore();
+  const { session } = useAuthStore();
   const [selectedReceiptFile, setSelectedReceiptFile] = useState<File | null>(
     null,
   );
@@ -106,29 +97,7 @@ export function ReceiptScanner() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center">
-            <Wallet className="h-6 w-6 text-blue-600" />
-            <span className="ml-2 text-xl font-semibold text-gray-900">
-              {APP_NAME}
-            </span>
-          </div>
-          <div className="flex items-center gap-4">
-            <LanguageSwitcher />
-            <span className="text-sm text-gray-500">{user?.email}</span>
-            <button
-              onClick={() => signOut()}
-              className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              <LogOut className="h-4 w-4" />
-              {t('common.logout')}
-            </button>
-          </div>
-        </div>
-      </nav>
-
+    <div>
       <main className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
