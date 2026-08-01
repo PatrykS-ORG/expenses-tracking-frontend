@@ -1,12 +1,13 @@
-import { Mail, Shield } from 'lucide-react';
+import { Mail, Shield, Sparkles } from 'lucide-react';
 
-export type SettingsTab = 'account' | 'summary';
+export type SettingsTab = 'account' | 'summary' | 'aiUsage';
 
 type SettingsTabsProps = {
   activeTab: SettingsTab;
   onTabChange: (tab: SettingsTab) => void;
   accountLabel: string;
   summaryLabel: string;
+  aiUsageLabel: string;
 };
 
 export function SettingsTabs({
@@ -14,6 +15,7 @@ export function SettingsTabs({
   onTabChange,
   accountLabel,
   summaryLabel,
+  aiUsageLabel,
 }: SettingsTabsProps) {
   return (
     <aside className="space-y-1 rounded-lg border bg-white p-3 shadow-sm">
@@ -30,6 +32,13 @@ export function SettingsTabs({
         onTabChange={onTabChange}
         icon={<Mail className="h-4 w-4" />}
         label={summaryLabel}
+      />
+      <TabButton
+        tab="aiUsage"
+        activeTab={activeTab}
+        onTabChange={onTabChange}
+        icon={<Sparkles className="h-4 w-4" />}
+        label={aiUsageLabel}
       />
     </aside>
   );

@@ -5,9 +5,10 @@
 Spendwell frontend is a React SPA (Vite) that:
 
 - authenticates users with Supabase Auth,
-- calls backend GraphQL for templates, settings, file upload, and receipt scanning,
+- calls backend GraphQL for templates, settings, AI usage, file upload, and receipt scanning,
 - guides users through onboarding → upload → dashboard workflow,
-- provides a receipt scanner page for OCR-based expense entry.
+- provides a receipt scanner page for OCR-based expense entry,
+- exposes Settings (`/settings`) for account, summary schedule, and AI usage.
 
 ```mermaid
 flowchart TB
@@ -42,6 +43,8 @@ Defined in `src/App.tsx`:
 | `/onboarding`   | no session     | redirect to `/auth` |
 | `/receipt-scan` | session exists | `ReceiptScanner`    |
 | `/receipt-scan` | no session     | redirect to `/auth` |
+| `/settings`     | session exists | `Settings`          |
+| `/settings`     | no session     | redirect to `/auth` |
 
 Onboarding success navigates to `/?setup=upload` to highlight the upload step. Dashboard links to `/receipt-scan` for receipt-based expense entry.
 
@@ -82,6 +85,9 @@ Page-level local state is used in `Dashboard` for:
 - `currentExpenseFile`
 - `overwriteCurrentExpenseFile`
 - `scanReceipt`
+- `sendSummaryNow`
+- `myAiUsageSummary`
+- `myAiUsageLog`
 
 ### URL strategy
 
@@ -119,6 +125,18 @@ All backend calls go through this endpoint. File uploads use base64-encoded muta
 3. Extracted text is shown in an editable textarea; user can correct OCR/AI output.
 4. `approveReceiptExpenses()` sends the edited text via GraphQL mutation.
 5. On success, navigates to `/` (expenses appended to the uploaded file on the backend).
+
+## Settings flow
+
+`Settings` page (`/settings`) has three tabs:
+
+| Tab      | Content                                                                                |
+| -------- | -------------------------------------------------------------------------------------- |
+| Account  | Password change (email users) + account deletion                                       |
+| Summary  | Automatic summary schedule + **Send summary now**                                      |
+| AI usage | Monthly credit remaining (`myAiUsageSummary`) + paginated spend audit (`myAiUsageLog`) |
+
+AI usage table columns: date, action, trigger, tokens, credits, status. Labels are i18n keys under `aiUsage.*` (`en` / `pl`).
 
 ## Onboarding flow
 

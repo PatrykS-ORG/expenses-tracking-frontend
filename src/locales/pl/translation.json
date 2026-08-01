@@ -196,6 +196,7 @@
     "account": "Konto",
     "source": "Źródło wydatków",
     "summary": "E-maile z podsumowaniem",
+    "aiUsage": "Zużycie AI",
     "profile": "Profil i bezpieczeństwo",
     "oauthManagedAccount": "To konto korzysta z dostawcy OAuth. Zmiana hasła i usunięcie konta są zarządzane przez tego dostawcę.",
     "currentPassword": "Aktualne hasło",
@@ -211,5 +212,36 @@
     "sendSummaryNowDescription": "Przeanalizuj aktualny plik wydatków i wyślij podsumowanie na adres {{email}}. Nie zmieni to harmonogramu automatycznej wysyłki.",
     "summarySent": "Bieżące podsumowanie wydatków zostało wysłane.",
     "saveError": "Nie udało się zapisać ustawień"
+  },
+  "aiUsage": {
+    "title": "Kredyty AI",
+    "used": "Wykorzystane kredyty w tym miesiącu",
+    "remaining": "Pozostało",
+    "limit": "Miesięczny limit",
+    "resets": "Reset",
+    "emptyLog": "Brak zarejestrowanego zużycia AI.",
+    "loadMore": "Załaduj więcej",
+    "loading": "Ładowanie historii zużycia...",
+    "columns": {
+      "date": "Data",
+      "action": "Akcja",
+      "trigger": "Źródło",
+      "tokens": "Tokeny",
+      "credits": "Kredyty",
+      "status": "Status"
+    },
+    "actions": {
+      "TEMPLATE_GENERATION": "Generowanie szablonu",
+      "EXPENSE_SUMMARY": "E-mail z podsumowaniem",
+      "RECEIPT_SCAN": "Skanowanie paragonu"
+    },
+    "triggers": {
+      "MANUAL": "Ręcznie",
+      "SCHEDULED": "Harmonogram"
+    },
+    "status": {
+      "success": "Sukces",
+      "failed": "Błąd"
+    }
   }
 }
