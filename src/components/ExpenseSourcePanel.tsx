@@ -12,6 +12,7 @@ import {
   type DataSourceType,
 } from '../services/onboarding.service';
 import { useAuthStore } from '../store/useAuthStore';
+import { runWithBlockingLoader } from '../store/useBlockingLoaderStore';
 
 export function ExpenseSourcePanel() {
   const { t } = useTranslation();
@@ -55,7 +56,7 @@ export function ExpenseSourcePanel() {
     setError(null);
     setSuccess(null);
     try {
-      await action();
+      await runWithBlockingLoader(action, t('common.processing'));
       setSuccess(message);
     } catch (actionError) {
       setError(

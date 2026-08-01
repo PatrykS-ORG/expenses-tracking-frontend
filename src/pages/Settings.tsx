@@ -16,6 +16,7 @@ import { SettingsTabs, type SettingsTab } from '../components/SettingsTabs';
 import { SettingsAlerts } from '../components/SettingsAlerts';
 import { AccountSettingsPanel } from '../components/AccountSettingsPanel';
 import { SummarySettingsPanel } from '../components/SummarySettingsPanel';
+import { runWithBlockingLoader } from '../store/useBlockingLoaderStore';
 
 const currencies: SummaryCurrency[] = [
   'PLN',
@@ -93,12 +94,12 @@ export function Settings() {
     void load();
   }, [fail, token]);
 
-  const run = async (action: () => Promise<void>) => {
+  const run = async (action: () => Promise<void>, loaderMessage?: string) => {
     setBusy(true);
     setError(null);
     setSuccess(null);
     try {
-      await action();
+      await runWithBlockingLoader(action, loaderMessage);
     } catch (actionError) {
       fail(actionError);
     } finally {
@@ -126,7 +127,7 @@ export function Settings() {
       setCurrentPassword('');
       setNewPassword('');
       notify(t('settings.passwordUpdated'));
-    });
+    }, t('common.saving'));
   };
 
   const handleDeleteAccount = () =>
@@ -134,7 +135,7 @@ export function Settings() {
       if (!token) return;
       await deleteMyAccount(token);
       await signOut();
-    });
+    }, t('common.processing'));
 
   const handleSummarySubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -151,7 +152,7 @@ export function Settings() {
       });
       setNextSummaryAt(result.nextSummaryAt);
       notify(t('dashboard.summaryScheduleSaved'));
-    });
+    }, t('common.saving'));
   };
 
   const handleSendSummaryNow = () =>
@@ -159,7 +160,7 @@ export function Settings() {
       if (!token) return;
       await sendSummaryNow(token);
       notify(t('settings.summarySent'));
-    });
+    }, t('common.sending'));
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">

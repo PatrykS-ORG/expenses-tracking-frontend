@@ -36,7 +36,12 @@
 ## Error/loading patterns
 
 - Global app bootstrap loading: `App.tsx` spinner.
-- Page-scoped loading and errors live in page state unless shared broadly.
+- User-triggered mutations use the shared blocking loader (`runWithBlockingLoader` + `BlockingLoaderHost`):
+  - full-screen semi-transparent overlay while the request runs,
+  - `beforeunload` confirmation when closing the browser/tab,
+  - in-app navigation blocked with a leave-confirm modal.
+- Keep local `busy` / button disabled flags for the triggering control.
+- Page-scoped loading and errors for initial data fetches live in page state (no blocking overlay).
 - Keep messages concise and user-facing in Polish.
 
 ## Routing

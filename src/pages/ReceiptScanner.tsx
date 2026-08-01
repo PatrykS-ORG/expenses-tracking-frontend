@@ -7,6 +7,7 @@ import {
   approveReceiptExpenses,
   scanReceipt,
 } from '../services/onboarding.service';
+import { runWithBlockingLoader } from '../store/useBlockingLoaderStore';
 
 export function ReceiptScanner() {
   const { t } = useTranslation();
@@ -49,9 +50,9 @@ export function ReceiptScanner() {
     setSuccess(null);
     setIsScanning(true);
     try {
-      const { extractedText: nextExtractedText } = await scanReceipt(
-        session.access_token,
-        selectedReceiptFile,
+      const { extractedText: nextExtractedText } = await runWithBlockingLoader(
+        () => scanReceipt(session.access_token, selectedReceiptFile),
+        t('receiptScanner.scanning'),
       );
       setExtractedText(nextExtractedText);
       setLastScannedText(nextExtractedText);
@@ -83,7 +84,10 @@ export function ReceiptScanner() {
     setSuccess(null);
     setIsApproving(true);
     try {
-      await approveReceiptExpenses(session.access_token, extractedText);
+      await runWithBlockingLoader(
+        () => approveReceiptExpenses(session.access_token, extractedText),
+        t('common.saving'),
+      );
       navigate('/');
     } catch (approveError) {
       const message =
