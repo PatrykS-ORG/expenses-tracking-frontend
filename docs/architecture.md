@@ -47,10 +47,11 @@ Onboarding success navigates to `/?setup=upload` to highlight the upload step. D
 
 ## State management
 
-| Store                | File                              | Responsibility                            |
-| -------------------- | --------------------------------- | ----------------------------------------- |
-| `useAuthStore`       | `src/store/useAuthStore.ts`       | session, user, bootstrapping, sign-out    |
-| `useOnboardingStore` | `src/store/useOnboardingStore.ts` | questionnaire state + template generation |
+| Store                    | File                                  | Responsibility                                       |
+| ------------------------ | ------------------------------------- | ---------------------------------------------------- |
+| `useAuthStore`           | `src/store/useAuthStore.ts`           | session, user, bootstrapping, sign-out               |
+| `useOnboardingStore`     | `src/store/useOnboardingStore.ts`     | questionnaire state + template generation            |
+| `useBlockingLoaderStore` | `src/store/useBlockingLoaderStore.ts` | global blocking overlay for user-triggered mutations |
 
 Page-level local state is used in `Dashboard` for:
 

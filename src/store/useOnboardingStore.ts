@@ -3,6 +3,7 @@ import type { OnboardingPreferences } from '../types/onboarding.types';
 import type { Template } from '../types/template.types';
 import { generateTemplate } from '../services/onboarding.service';
 import { useAuthStore } from './useAuthStore';
+import { runWithBlockingLoader } from './useBlockingLoaderStore';
 
 interface OnboardingState {
   preferences: OnboardingPreferences;
@@ -50,9 +51,8 @@ export const useOnboardingStore = create<OnboardingState>()((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const template = await generateTemplate(
-        preferences,
-        session.access_token,
+      const template = await runWithBlockingLoader(() =>
+        generateTemplate(preferences, session.access_token),
       );
       set({ generatedTemplate: template });
     } catch (error: unknown) {
