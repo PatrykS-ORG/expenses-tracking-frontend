@@ -5,10 +5,14 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
 import {
   deleteMyAccount,
+  getAiUsageLog,
+  getAiUsageSummary,
   getSummarySchedule,
   getTemplateDashboard,
   sendSummaryNow,
   updateSummarySchedule,
+  type AiUsageLogEntry,
+  type AiUsageSummary,
   type SummaryCurrency,
   type SummaryEmailLanguage,
 } from '../services/onboarding.service';
@@ -16,6 +20,7 @@ import { SettingsTabs, type SettingsTab } from '../components/SettingsTabs';
 import { SettingsAlerts } from '../components/SettingsAlerts';
 import { AccountSettingsPanel } from '../components/AccountSettingsPanel';
 import { SummarySettingsPanel } from '../components/SummarySettingsPanel';
+import { AiUsageSettingsPanel } from '../components/AiUsageSettingsPanel';
 import { runWithBlockingLoader } from '../store/useBlockingLoaderStore';
 
 const currencies: SummaryCurrency[] = [
@@ -28,6 +33,7 @@ const currencies: SummaryCurrency[] = [
   'UAH',
 ];
 const timezones = ['Europe/Warsaw', 'Europe/London', 'Europe/Berlin', 'UTC'];
+const AI_USAGE_PAGE_SIZE = 20;
 
 export function Settings() {
   const { t } = useTranslation();
@@ -48,6 +54,12 @@ export function Settings() {
     useState<SummaryEmailLanguage>('PL');
   const [currency, setCurrency] = useState<SummaryCurrency>('PLN');
   const [nextSummaryAt, setNextSummaryAt] = useState<string | null>(null);
+  const [aiUsageSummary, setAiUsageSummary] = useState<AiUsageSummary | null>(
+    null,
+  );
+  const [aiUsageEntries, setAiUsageEntries] = useState<AiUsageLogEntry[]>([]);
+  const [aiUsageLoading, setAiUsageLoading] = useState(false);
+  const [aiUsageHasMore, setAiUsageHasMore] = useState(false);
 
   const token = session?.access_token;
   const primaryProvider = user?.app_metadata.provider as string | undefined;
@@ -93,6 +105,34 @@ export function Settings() {
     };
     void load();
   }, [fail, token]);
+
+  const loadAiUsage = useCallback(
+    async (offset = 0, append = false) => {
+      if (!token) return;
+      setAiUsageLoading(true);
+      try {
+        const [summary, entries] = await Promise.all([
+          getAiUsageSummary(token),
+          getAiUsageLog(token, AI_USAGE_PAGE_SIZE, offset),
+        ]);
+        setAiUsageSummary(summary);
+        setAiUsageEntries((current) =>
+          append ? [...current, ...entries] : entries,
+        );
+        setAiUsageHasMore(entries.length === AI_USAGE_PAGE_SIZE);
+      } catch (loadError) {
+        fail(loadError);
+      } finally {
+        setAiUsageLoading(false);
+      }
+    },
+    [fail, token],
+  );
+
+  useEffect(() => {
+    if (tab !== 'aiUsage' || !token) return;
+    void loadAiUsage(0, false);
+  }, [loadAiUsage, tab, token]);
 
   const run = async (action: () => Promise<void>, loaderMessage?: string) => {
     setBusy(true);
@@ -160,7 +200,14 @@ export function Settings() {
       if (!token) return;
       await sendSummaryNow(token);
       notify(t('settings.summarySent'));
+      if (tab === 'aiUsage') {
+        await loadAiUsage(0, false);
+      }
     }, t('common.sending'));
+
+  const handleLoadMoreAiUsage = () => {
+    void loadAiUsage(aiUsageEntries.length, true);
+  };
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
@@ -174,6 +221,7 @@ export function Settings() {
           onTabChange={setTab}
           accountLabel={t('settings.account')}
           summaryLabel={t('settings.summary')}
+          aiUsageLabel={t('settings.aiUsage')}
         />
         <div className="space-y-4">
           <SettingsAlerts error={error} success={success} />
@@ -246,6 +294,42 @@ export function Settings() {
               )}
               sendingLabel={t('common.sending')}
               sendLabel={t('common.send')}
+            />
+          )}
+
+          {tab === 'aiUsage' && (
+            <AiUsageSettingsPanel
+              summary={aiUsageSummary}
+              entries={aiUsageEntries}
+              loading={aiUsageLoading}
+              busy={busy}
+              hasMore={aiUsageHasMore}
+              onLoadMore={handleLoadMoreAiUsage}
+              title={t('aiUsage.title')}
+              usedLabel={t('aiUsage.used')}
+              remainingLabel={t('aiUsage.remaining')}
+              limitLabel={t('aiUsage.limit')}
+              resetsLabel={t('aiUsage.resets')}
+              emptyLogLabel={t('aiUsage.emptyLog')}
+              loadMoreLabel={t('aiUsage.loadMore')}
+              loadingLabel={t('aiUsage.loading')}
+              dateColumn={t('aiUsage.columns.date')}
+              actionColumn={t('aiUsage.columns.action')}
+              triggerColumn={t('aiUsage.columns.trigger')}
+              tokensColumn={t('aiUsage.columns.tokens')}
+              creditsColumn={t('aiUsage.columns.credits')}
+              statusColumn={t('aiUsage.columns.status')}
+              successLabel={t('aiUsage.status.success')}
+              failedLabel={t('aiUsage.status.failed')}
+              actionLabels={{
+                TEMPLATE_GENERATION: t('aiUsage.actions.TEMPLATE_GENERATION'),
+                EXPENSE_SUMMARY: t('aiUsage.actions.EXPENSE_SUMMARY'),
+                RECEIPT_SCAN: t('aiUsage.actions.RECEIPT_SCAN'),
+              }}
+              triggerLabels={{
+                MANUAL: t('aiUsage.triggers.MANUAL'),
+                SCHEDULED: t('aiUsage.triggers.SCHEDULED'),
+              }}
             />
           )}
         </div>

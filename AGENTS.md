@@ -5,13 +5,14 @@ React 19 + Vite SPA for **Spendwell**.
 Implemented frontend scope:
 
 - Supabase authentication (`useAuthStore`)
-- Route guards (`/`, `/auth`, `/onboarding`)
+- Route guards (`/`, `/auth`, `/onboarding`, `/receipt-scan`, `/settings`)
 - Onboarding questionnaire + AI template generation
 - Dashboard template selection/activation
 - Dashboard template preview: web/mobile toggle with touch-like drag-to-scroll simulation
 - Data-source selection (`FILE_UPLOAD` / `NEXTCLOUD`)
 - Expense file upload via backend GraphQL mutations
 - Receipt scanner page (`/receipt-scan`) with image OCR scan and expense approval
+- Settings page (`/settings`): account, summary schedule, AI usage credits/audit
 - Test-email trigger via GraphQL
 
 ## Prerequisites
@@ -42,11 +43,12 @@ A Husky pre-commit hook runs `lint-staged` (ESLint + Prettier) on staged files b
 src/
 ├── App.tsx
 ├── main.tsx
-├── components/              # Auth component
-├── pages/                   # Dashboard, Onboarding, ReceiptScanner
+├── components/              # Settings panels, shared UI
+├── pages/                   # Dashboard, Onboarding, ReceiptScanner, Settings
 ├── services/                # onboarding.service.ts
-├── store/                   # useAuthStore, useOnboardingStore
+├── store/                   # useAuthStore, useOnboardingStore, useBlockingLoaderStore
 ├── lib/                     # supabase singleton + preview helpers
+├── locales/                 # en/pl translation.json
 ├── data/                    # predefined template catalog
 ├── types/                   # shared TS types
 └── index.css
@@ -62,10 +64,11 @@ Run both `scripts/` files after editing `predefinedTemplates.pl.json` by hand �
 
 - Backend communication is centralized in `services/onboarding.service.ts`.
 - Service layer mixes:
-  - GraphQL operations for templates/settings/email/receipt approval
+  - GraphQL operations for templates/settings/email/receipt approval/AI usage
   - GraphQL mutations with base64 file inputs for expense upload and receipt scan
 - `VITE_API_URL` defaults to `http://localhost:3000/graphql`.
 - Onboarding redirects to `/?setup=upload` so users complete file upload immediately.
+- Settings AI usage tab loads `myAiUsageSummary` + `myAiUsageLog` on tab activation.
 
 ## Environment variables
 
@@ -77,6 +80,6 @@ Run both `scripts/` files after editing `predefinedTemplates.pl.json` by hand �
 
 - Do not call backend directly from components; use services.
 - Do not put secrets in frontend `.env` (`VITE_*` values are public).
-- Keep user-facing messages in Polish.
+- Keep user-facing strings in both `en` and `pl` locale files (`pnpm i18n:check`).
 
 See `docs/architecture.md` and `docs/conventions.md` for implementation details.
