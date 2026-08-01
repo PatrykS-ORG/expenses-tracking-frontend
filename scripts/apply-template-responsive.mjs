@@ -235,15 +235,15 @@ const patches = {
     );
     h = h.replace(
       '<div style="font-size:14px;font-weight:800;color:#1B4332;line-height:1.2;">{{ salaryAmount }}</div>',
-      '<div class="stat-col-value num" style="font-size:14px;font-weight:800;color:#1B4332;line-height:1.2;">{{ salaryAmount }}</div>',
+      '<div class="stat-col-value num" style="font-size:14px;font-weight:800;color:#2D6A4F;line-height:1.2;">{{ salaryAmount }}</div>',
     );
     h = h.replace(
       '<div style="font-size:14px;font-weight:800;color:#E63946;line-height:1.3;">{{ totalExpenses }}</div>',
       '<div class="stat-col-value num" style="font-size:14px;font-weight:800;color:#E63946;line-height:1.3;">{{ totalExpenses }}</div>',
     );
     h = h.replace(
-      '<div style="font-size:14px;font-weight:800;color:#2D6A4F;line-height:1.3;">{{ savingsAmount }}</div>',
-      '<div class="stat-col-value num" style="font-size:14px;font-weight:800;color:#2D6A4F;line-height:1.3;">{{ savingsAmount }}</div>',
+      '<div style="font-size:14px;font-weight:800;color:#3B5BDB;line-height:1.3;">{{ savingsAmount }}</div>',
+      '<div class="stat-col-value num" style="font-size:14px;font-weight:800;color:#3B5BDB;line-height:1.3;">{{ savingsAmount }}</div>',
     );
     return h;
   },
@@ -359,8 +359,8 @@ const patches = {
       '<p class="aurora-card-num num" style="margin:14px 0 0;font-size:32px;font-weight:800;color:#831843;line-height:1;letter-spacing:-0.5px;">{{ totalExpenses }}</p>',
     );
     h = h.replace(
-      '<p style="margin:14px 0 0;font-size:32px;font-weight:800;color:#064e3b;line-height:1;letter-spacing:-0.5px;">{{ savingsAmount }}</p>',
-      '<p class="aurora-card-num num" style="margin:14px 0 0;font-size:32px;font-weight:800;color:#064e3b;line-height:1;letter-spacing:-0.5px;">{{ savingsAmount }}</p>',
+      '<p style="margin:14px 0 0;font-size:32px;font-weight:800;color:#3B5BDB;line-height:1;letter-spacing:-0.5px;">{{ savingsAmount }}</p>',
+      '<p class="aurora-card-num num" style="margin:14px 0 0;font-size:32px;font-weight:800;color:#3B5BDB;line-height:1;letter-spacing:-0.5px;">{{ savingsAmount }}</p>',
     );
     h = h.replace(
       /style="padding:24px 32px 0;"/g,
@@ -486,8 +486,8 @@ const patches = {
       '<p class="stat-amount num" style="margin:8px 0 0;font-size:26px;font-weight:800;color:#14532d;letter-spacing:-0.5px;">{{ totalExpenses }}</p>',
     );
     h = h.replace(
-      '<p style="margin:8px 0 0;font-size:26px;font-weight:800;color:#14532d;letter-spacing:-0.5px;">{{ savingsAmount }}</p>',
-      '<p class="stat-amount num" style="margin:8px 0 0;font-size:26px;font-weight:800;color:#14532d;letter-spacing:-0.5px;">{{ savingsAmount }}</p>',
+      '<p style="margin:8px 0 0;font-size:26px;font-weight:800;color:#3B5BDB;letter-spacing:-0.5px;">{{ savingsAmount }}</p>',
+      '<p class="stat-amount num" style="margin:8px 0 0;font-size:26px;font-weight:800;color:#3B5BDB;letter-spacing:-0.5px;">{{ savingsAmount }}</p>',
     );
     h = addClassToStyle(h, 'padding:28px 32px 8px;', 'sec-pad');
     h = h.replace(
