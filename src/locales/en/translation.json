@@ -11,6 +11,12 @@
     "delete": "Delete",
     "active": "Active",
     "processing": "Processing...",
+    "pleaseWait": "Please wait...",
+    "doNotCloseTab": "Do not close this tab until the operation finishes.",
+    "leaveWhileLoadingTitle": "Operation in progress",
+    "leaveWhileLoadingBody": "An action is still running. Leaving now may interrupt it. Are you sure you want to leave?",
+    "stay": "Stay",
+    "leaveAnyway": "Leave anyway",
     "backToDashboard": "Back to dashboard",
     "backToDashboardShort": "Back to dashboard",
     "cancel": "Cancel"
@@ -190,6 +196,7 @@
     "account": "Account",
     "source": "Expense source",
     "summary": "Summary emails",
+    "aiUsage": "AI usage",
     "profile": "Profile and security",
     "oauthManagedAccount": "This account uses an OAuth provider. Password changes and account deletion are managed by that provider.",
     "currentPassword": "Current password",
@@ -205,5 +212,36 @@
     "sendSummaryNowDescription": "Analyze the current expense file and send the resulting summary to {{email}}. This does not change the automatic schedule.",
     "summarySent": "The current expense summary was sent.",
     "saveError": "Failed to save settings"
+  },
+  "aiUsage": {
+    "title": "AI credits",
+    "used": "Credits used this month",
+    "remaining": "Remaining",
+    "limit": "Monthly limit",
+    "resets": "Resets on",
+    "emptyLog": "No AI usage recorded yet.",
+    "loadMore": "Load more",
+    "loading": "Loading usage history...",
+    "columns": {
+      "date": "Date",
+      "action": "Action",
+      "trigger": "Trigger",
+      "tokens": "Tokens",
+      "credits": "Credits",
+      "status": "Status"
+    },
+    "actions": {
+      "TEMPLATE_GENERATION": "Template generation",
+      "EXPENSE_SUMMARY": "Summary email",
+      "RECEIPT_SCAN": "Receipt scan"
+    },
+    "triggers": {
+      "MANUAL": "Manual",
+      "SCHEDULED": "Scheduled"
+    },
+    "status": {
+      "success": "Success",
+      "failed": "Failed"
+    }
   }
 }

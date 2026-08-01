@@ -12,6 +12,7 @@ import {
   type DataSourceType,
 } from '../services/onboarding.service';
 import { useAuthStore } from '../store/useAuthStore';
+import { runWithBlockingLoader } from '../store/useBlockingLoaderStore';
 
 export function ExpenseSourcePanel() {
   const { t } = useTranslation();
@@ -27,18 +28,23 @@ export function ExpenseSourcePanel() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const refreshDashboardMeta = useCallback(async () => {
     if (!token) return;
     const dashboard = await getTemplateDashboard(token);
     setDataSourceType(dashboard.dataSourceType);
     setNextcloudPath(dashboard.nextcloudFilePath ?? '');
     setUploadedFilePath(dashboard.uploadedFilePath);
-    if (dashboard.uploadedFilePath) {
-      const file = await getCurrentExpenseFile(token);
-      setFileContent(file.content);
-      setSavedContent(file.content);
-    }
+    return dashboard;
   }, [token]);
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    const dashboard = await refreshDashboardMeta();
+    if (!dashboard?.uploadedFilePath) return;
+    const file = await getCurrentExpenseFile(token);
+    setFileContent(file.content);
+    setSavedContent(file.content);
+  }, [refreshDashboardMeta, token]);
 
   useEffect(() => {
     void load().catch((loadError) =>
@@ -55,7 +61,7 @@ export function ExpenseSourcePanel() {
     setError(null);
     setSuccess(null);
     try {
-      await action();
+      await runWithBlockingLoader(action, t('common.processing'));
       setSuccess(message);
     } catch (actionError) {
       setError(
@@ -166,9 +172,12 @@ export function ExpenseSourcePanel() {
               event.preventDefault();
               void run(async () => {
                 if (!token || !selectedFile) return;
+                const uploadedText = await selectedFile.text();
                 await uploadExpenseFile(token, selectedFile);
                 setSelectedFile(null);
-                await load();
+                setFileContent(uploadedText);
+                setSavedContent(uploadedText);
+                await refreshDashboardMeta();
               }, t('dashboard.fileUploaded'));
             }}
           >
@@ -198,12 +207,16 @@ export function ExpenseSourcePanel() {
               event.preventDefault();
               void run(async () => {
                 if (!token || !fileContent.trim()) return;
+                const contentToSave = fileContent;
                 await overwriteCurrentExpenseFile(
                   token,
-                  fileContent,
+                  contentToSave,
                   uploadedFilePath,
                 );
-                await load();
+                // Keep local content — a storage re-fetch can return a stale cached copy.
+                setFileContent(contentToSave);
+                setSavedContent(contentToSave);
+                await refreshDashboardMeta();
               }, t('dashboard.expenseFileSaved'));
             }}
           >

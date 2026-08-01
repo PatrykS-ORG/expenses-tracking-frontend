@@ -1,20 +1,21 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
+  createBrowserRouter,
   Navigate,
+  Outlet,
+  RouterProvider,
 } from 'react-router-dom';
 import { useAuthStore } from './store/useAuthStore';
 import { Auth } from './components/Auth';
+import { BlockingLoaderHost } from './components/BlockingLoaderHost';
 import { Dashboard } from './pages/Dashboard';
 import { Onboarding } from './pages/Onboarding';
 import { ReceiptScanner } from './pages/ReceiptScanner';
 import { Settings } from './pages/Settings';
 import { AppLayout } from './components/AppLayout';
 
-export default function App() {
-  const { session, isLoading, initialize } = useAuthStore();
+function AuthBootstrap({ children }: { children: ReactNode }) {
+  const { isLoading, initialize } = useAuthStore();
 
   useEffect(() => {
     initialize();
@@ -23,31 +24,73 @@ export default function App() {
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600" />
       </div>
     );
   }
 
+  return children;
+}
+
+function RootLayout() {
   return (
-    <Router>
-      <Routes>
-        <Route
-          path="/auth"
-          element={!session ? <Auth /> : <Navigate to="/" />}
-        />
-        <Route
-          element={session ? <AppLayout /> : <Navigate to="/auth" replace />}
-        >
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/receipt-scan" element={<ReceiptScanner />} />
-          <Route path="/settings" element={<Settings />} />
-        </Route>
-        <Route
-          path="*"
-          element={<Navigate to={session ? '/' : '/auth'} replace />}
-        />
-      </Routes>
-    </Router>
+    <>
+      <Outlet />
+      <BlockingLoaderHost />
+    </>
+  );
+}
+
+function ProtectedLayout() {
+  const session = useAuthStore((state) => state.session);
+  if (!session) {
+    return <Navigate to="/auth" replace />;
+  }
+  return <AppLayout />;
+}
+
+function AuthRoute() {
+  const session = useAuthStore((state) => state.session);
+  if (session) {
+    return <Navigate to="/" replace />;
+  }
+  return <Auth />;
+}
+
+function CatchAll() {
+  const session = useAuthStore((state) => state.session);
+  return <Navigate to={session ? '/' : '/auth'} replace />;
+}
+
+const router = createBrowserRouter([
+  {
+    element: <RootLayout />,
+    children: [
+      {
+        path: '/auth',
+        element: <AuthRoute />,
+      },
+      {
+        element: <ProtectedLayout />,
+        children: [
+          { path: '/', element: <Dashboard /> },
+          { path: '/onboarding', element: <Onboarding /> },
+          { path: '/receipt-scan', element: <ReceiptScanner /> },
+          { path: '/settings', element: <Settings /> },
+        ],
+      },
+      {
+        path: '*',
+        element: <CatchAll />,
+      },
+    ],
+  },
+]);
+
+export default function App() {
+  return (
+    <AuthBootstrap>
+      <RouterProvider router={router} />
+    </AuthBootstrap>
   );
 }

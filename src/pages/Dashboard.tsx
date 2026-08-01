@@ -29,6 +29,7 @@ import {
   TemplatePreviewPanel,
   type PreviewSelection,
 } from '../components/TemplatePreviewPanel';
+import { runWithBlockingLoader } from '../store/useBlockingLoaderStore';
 
 type Selection =
   | { kind: 'predefined'; template: PredefinedTemplate }
@@ -118,7 +119,7 @@ export function Dashboard() {
     setError(null);
     setSuccess(null);
     try {
-      await action();
+      await runWithBlockingLoader(action, t('common.processing'));
       setSuccess(message);
     } catch (actionError) {
       setError(

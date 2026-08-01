@@ -60,6 +60,35 @@ export interface ReceiptScanResult {
   extractedText: string;
 }
 
+export type AiActionType =
+  | 'TEMPLATE_GENERATION'
+  | 'EXPENSE_SUMMARY'
+  | 'RECEIPT_SCAN';
+
+export type AiUsageTrigger = 'MANUAL' | 'SCHEDULED';
+
+export interface AiUsageSummary {
+  limit: number;
+  used: number;
+  remaining: number;
+  periodStart: string;
+  periodEnd: string;
+}
+
+export interface AiUsageLogEntry {
+  id: string;
+  action: AiActionType;
+  trigger: AiUsageTrigger;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  creditsUsed: number;
+  success: boolean;
+  errorMessage?: string | null;
+  createdAt: string;
+}
+
 const GRAPHQL_URL =
   import.meta.env.VITE_API_URL || 'http://localhost:3000/graphql';
 
@@ -585,4 +614,59 @@ export async function deleteMyAccount(accessToken: string): Promise<void> {
   if (!data.deleteMyAccount) {
     throw new Error('Failed to delete account');
   }
+}
+
+export async function getAiUsageSummary(
+  accessToken: string,
+): Promise<AiUsageSummary> {
+  const data = await graphqlRequest<{ myAiUsageSummary?: AiUsageSummary }>(
+    accessToken,
+    `
+      query MyAiUsageSummary {
+        myAiUsageSummary {
+          limit
+          used
+          remaining
+          periodStart
+          periodEnd
+        }
+      }
+    `,
+  );
+
+  if (!data.myAiUsageSummary) {
+    throw new Error('Failed to fetch AI usage summary');
+  }
+
+  return data.myAiUsageSummary;
+}
+
+export async function getAiUsageLog(
+  accessToken: string,
+  limit = 50,
+  offset = 0,
+): Promise<AiUsageLogEntry[]> {
+  const data = await graphqlRequest<{ myAiUsageLog?: AiUsageLogEntry[] }>(
+    accessToken,
+    `
+      query MyAiUsageLog($limit: Int, $offset: Int) {
+        myAiUsageLog(limit: $limit, offset: $offset) {
+          id
+          action
+          trigger
+          model
+          promptTokens
+          completionTokens
+          totalTokens
+          creditsUsed
+          success
+          errorMessage
+          createdAt
+        }
+      }
+    `,
+    { limit, offset },
+  );
+
+  return data.myAiUsageLog ?? [];
 }
