@@ -1,5 +1,11 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { FileScan, LayoutDashboard, LogOut, Settings } from 'lucide-react';
+import {
+  ChartLine,
+  FileScan,
+  LayoutDashboard,
+  LogOut,
+  Settings,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/useAuthStore';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -31,6 +37,10 @@ export function AppLayout() {
             <NavLink to="/receipt-scan" className={linkClass}>
               <FileScan className="h-4 w-4" />
               {t('navigation.receipts')}
+            </NavLink>
+            <NavLink to="/analytics" className={linkClass}>
+              <ChartLine className="h-4 w-4" />
+              {t('navigation.analytics')}
             </NavLink>
             <NavLink to="/settings" className={linkClass}>
               <Settings className="h-4 w-4" />

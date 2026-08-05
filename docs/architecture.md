@@ -120,7 +120,7 @@ All backend calls go through this endpoint. File uploads use base64-encoded muta
 
 `ReceiptScanner` page (`/receipt-scan`):
 
-1. User selects a receipt image (JPEG/PNG/WEBP, max 2MB) and submits for scan.
+1. User selects a receipt image (JPEG/PNG/WEBP, max 5MB) and submits for scan.
 2. `scanReceipt()` sends the image as a GraphQL mutation with base64 payload.
 3. Extracted text is shown in an editable textarea; user can correct OCR/AI output.
 4. `approveReceiptExpenses()` sends the edited text via GraphQL mutation.
