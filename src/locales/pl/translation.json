@@ -87,7 +87,7 @@
     "title": "Skanowanie paragonu",
     "subtitle": "Prześlij zdjęcie paragonu, sprawdź podgląd wydatków i zatwierdź zapis. Dla lepszego odczytu przykadruj sam paragon (bez stołu w tle) i upewnij się, że tekst jest ostry i dobrze oświetlony.",
     "step1Title": "1. Prześlij zdjęcie paragonu",
-    "step1Desc": "Obsługiwane formaty: JPG, PNG, WEBP (do 2MB). Przed wysłaniem przytnij zdjęcie tak, aby w kadrze był tylko paragon — mniej tła oznacza lepsze rozpoznawanie tekstu.",
+    "step1Desc": "Obsługiwane formaty: JPG, PNG, WEBP (do 5MB). Przed wysłaniem przytnij zdjęcie tak, aby w kadrze był tylko paragon — mniej tła oznacza lepsze rozpoznawanie tekstu.",
     "scanning": "Analizowanie...",
     "scanButton": "Skanuj paragon",
     "previewAlt": "Podgląd paragonu",

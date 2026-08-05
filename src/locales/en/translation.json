@@ -87,7 +87,7 @@
     "title": "Receipt scanning",
     "subtitle": "Upload a receipt photo, review the expense preview, and approve to save. For better OCR, crop to the receipt only (no table in the background) and make sure the text is sharp and well lit.",
     "step1Title": "1. Upload receipt photo",
-    "step1Desc": "Supported formats: JPG, PNG, WEBP (up to 2MB). Before sending, crop the image so only the receipt is in frame — less background means better text recognition.",
+    "step1Desc": "Supported formats: JPG, PNG, WEBP (up to 5MB). Before sending, crop the image so only the receipt is in frame — less background means better text recognition.",
     "scanning": "Analyzing...",
     "scanButton": "Scan receipt",
     "previewAlt": "Receipt preview",
