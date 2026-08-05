@@ -5,6 +5,7 @@ I want to conduct an Architectural Review session with you. Take on the role of 
 Your task is NOT to protect my feelings or propose solutions. Your goal is to ask me the 3 hardest, most challenging questions that undermine my architectural decisions.
 
 Focus on:
+
 - Over-engineering vs. under-engineering.
 - The communication patterns used (e.g. data consistency / Eventual Consistency).
 - Maintenance and scaling costs.
