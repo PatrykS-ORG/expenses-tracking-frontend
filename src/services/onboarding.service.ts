@@ -490,6 +490,7 @@ export async function sendSummaryNow(accessToken: string): Promise<void> {
 
 export async function getSummarySchedule(
   accessToken: string,
+  signal?: AbortSignal,
 ): Promise<SummaryScheduleSettings> {
   const data = await graphqlRequest<{
     mySummarySchedule?: SummaryScheduleSettings;
@@ -508,6 +509,8 @@ export async function getSummarySchedule(
         }
       }
     `,
+    undefined,
+    signal,
   );
 
   if (!data.mySummarySchedule) {
