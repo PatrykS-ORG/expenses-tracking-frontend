@@ -3,11 +3,13 @@ import { ScanSearch, Upload } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { featureFlags } from '../lib/featureFlags';
+import { centsToAmountString } from '../lib/money';
 import {
   getCurrentExpenseFile,
   getTemplateDashboard,
   overwriteCurrentExpenseFile,
   updateDataSource,
+  updateSalary,
   uploadExpenseFile,
   type DataSourceType,
 } from '../services/onboarding.service';
@@ -23,10 +25,23 @@ export function ExpenseSourcePanel() {
   const [uploadedFilePath, setUploadedFilePath] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState('');
   const [savedContent, setSavedContent] = useState('');
+  const [salaryAmount, setSalaryAmount] = useState('');
+  const [savedSalaryAmount, setSavedSalaryAmount] = useState('');
+  const [salaryReady, setSalaryReady] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const applySalaryCents = useCallback((salaryCents: number | null) => {
+    const formatted =
+      salaryCents != null && salaryCents > 0
+        ? centsToAmountString(salaryCents)
+        : '';
+    setSalaryAmount(formatted);
+    setSavedSalaryAmount(formatted);
+    setSalaryReady(true);
+  }, []);
 
   const refreshDashboardMeta = useCallback(async () => {
     if (!token) return;
@@ -34,8 +49,9 @@ export function ExpenseSourcePanel() {
     setDataSourceType(dashboard.dataSourceType);
     setNextcloudPath(dashboard.nextcloudFilePath ?? '');
     setUploadedFilePath(dashboard.uploadedFilePath);
+    applySalaryCents(dashboard.salaryCents);
     return dashboard;
-  }, [token]);
+  }, [applySalaryCents, token]);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -84,6 +100,9 @@ export function ExpenseSourcePanel() {
     }
   };
 
+  const salaryMissing = salaryReady && savedSalaryAmount.trim() === '';
+  const salaryDirty = salaryAmount.trim() !== savedSalaryAmount.trim();
+
   return (
     <section
       id="expense-source"
@@ -119,6 +138,44 @@ export function ExpenseSourcePanel() {
           {success}
         </div>
       )}
+      {salaryMissing && (
+        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          {t('dashboard.salaryMissingWarning')}
+        </div>
+      )}
+
+      <form
+        className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void run(async () => {
+            if (!token || !salaryAmount.trim()) return;
+            const savedCents = await updateSalary(token, salaryAmount.trim());
+            applySalaryCents(savedCents);
+          }, t('dashboard.salarySaved'));
+        }}
+      >
+        <label className="min-w-0 flex-1 text-sm text-gray-700">
+          {t('dashboard.salaryLabel')}
+          <input
+            type="number"
+            inputMode="decimal"
+            required
+            value={salaryAmount}
+            onChange={(event) => setSalaryAmount(event.target.value)}
+            placeholder={t('dashboard.salaryPlaceholder')}
+            className="mt-1 w-full rounded-md border px-3 py-2"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={busy || !salaryAmount.trim() || !salaryDirty}
+          className="rounded-md bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
+        >
+          {t('common.save')}
+        </button>
+      </form>
+      <p className="mt-1 text-xs text-gray-500">{t('dashboard.salaryHint')}</p>
 
       {featureFlags.nextcloud && (
         <div className="mt-4 flex gap-2">

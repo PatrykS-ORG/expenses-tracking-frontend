@@ -184,7 +184,7 @@ export function ManualSummaryForm({
             value={salaryAmount}
             onChange={(event) => onSalaryAmountChange(event.target.value)}
             className="mt-1 w-full rounded-md border px-3 py-2"
-            placeholder="6500.00"
+            placeholder="10000.00"
           />
         </label>
         <label className="text-sm sm:col-span-2">
