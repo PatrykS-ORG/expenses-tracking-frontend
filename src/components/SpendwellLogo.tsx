@@ -7,12 +7,13 @@ type SpendwellLogoProps = {
   className?: string;
 };
 
+/** Height scale for the stacked ~4:3 mark (icon + wordmark + tagline). */
 const logoSizes = {
-  xs: 'h-10',
+  xs: 'h-14',
   sm: 'h-20',
-  md: 'h-24',
-  lg: 'h-36',
-  xl: 'h-44',
+  md: 'h-28 sm:h-32 lg:h-40',
+  lg: 'h-40 sm:h-48',
+  xl: 'h-40 sm:h-48 lg:h-58',
 };
 
 export function SpendwellLogo({
@@ -26,7 +27,7 @@ export function SpendwellLogo({
     <img
       src={LOGO_SRC}
       alt={APP_NAME}
-      className={`block w-auto ${logoSizes[size]} ${className}`}
+      className={`block w-auto max-w-full object-contain ${logoSizes[size]} ${className}`}
     />
   );
 }

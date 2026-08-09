@@ -15,6 +15,7 @@ interface TemplateSettings {
   data_source_type: DataSourceType;
   nextcloud_file_path: string | null;
   uploaded_file_path: string | null;
+  salary_cents: number | null;
 }
 
 export type DataSourceType = 'FILE_UPLOAD' | 'NEXTCLOUD';
@@ -25,6 +26,7 @@ export interface DashboardData {
   dataSourceType: DataSourceType;
   nextcloudFilePath: string | null;
   uploadedFilePath: string | null;
+  salaryCents: number | null;
 }
 
 export type SummaryEmailLanguage = 'PL' | 'EN';
@@ -223,6 +225,7 @@ export async function getTemplateDashboard(
           data_source_type
           nextcloud_file_path
           uploaded_file_path
+          salary_cents
         }
       }
     `,
@@ -236,6 +239,7 @@ export async function getTemplateDashboard(
     dataSourceType: data.myTemplateSettings?.data_source_type ?? 'FILE_UPLOAD',
     nextcloudFilePath: data.myTemplateSettings?.nextcloud_file_path ?? null,
     uploadedFilePath: data.myTemplateSettings?.uploaded_file_path ?? null,
+    salaryCents: data.myTemplateSettings?.salary_cents ?? null,
   };
 }
 
@@ -486,6 +490,27 @@ export async function sendSummaryNow(accessToken: string): Promise<void> {
   if (!data.sendSummaryNow) {
     throw new Error('Failed to send expense summary');
   }
+}
+
+export async function updateSalary(
+  accessToken: string,
+  salaryAmount: string,
+): Promise<number> {
+  const data = await graphqlRequest<{ updateSalary?: number }>(
+    accessToken,
+    `
+      mutation UpdateSalary($salaryAmount: String!) {
+        updateSalary(salaryAmount: $salaryAmount)
+      }
+    `,
+    { salaryAmount },
+  );
+
+  if (typeof data.updateSalary !== 'number') {
+    throw new Error('Failed to save salary');
+  }
+
+  return data.updateSalary;
 }
 
 export async function getSummarySchedule(
