@@ -20,7 +20,10 @@ import {
   previousPeriod,
 } from '../lib/period';
 import { centsToAmountString } from '../lib/money';
-import { getSummarySchedule } from '../services/onboarding.service';
+import {
+  getSummarySchedule,
+  getTemplateDashboard,
+} from '../services/onboarding.service';
 import {
   createManualSummary,
   getMySummaries,
@@ -54,6 +57,9 @@ export function Analytics() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('detail');
+  const [profileSalaryCents, setProfileSalaryCents] = useState<number | null>(
+    null,
+  );
   const [salaryAmount, setSalaryAmount] = useState('');
   const [savingsMessage, setSavingsMessage] = useState('');
   const [categories, setCategories] = useState<CategoryFormState>(
@@ -88,18 +94,25 @@ export function Analytics() {
     selectedPeriod === previousMonth &&
     !selectedSummary;
 
-  const resetForm = useCallback((summary: SummaryAnalytics | null) => {
-    if (!summary) {
-      setSalaryAmount('');
-      setSavingsMessage('');
-      setCategories(emptyCategoryFormState());
-      return;
-    }
+  const resetForm = useCallback(
+    (summary: SummaryAnalytics | null) => {
+      if (!summary) {
+        setSalaryAmount(
+          profileSalaryCents != null && profileSalaryCents > 0
+            ? centsToAmountString(profileSalaryCents)
+            : '',
+        );
+        setSavingsMessage('');
+        setCategories(emptyCategoryFormState());
+        return;
+      }
 
-    setSalaryAmount(centsToAmountString(summary.salaryCents));
-    setSavingsMessage(summary.savingsMessage ?? '');
-    setCategories(categoryFormStateFromSummary(summary));
-  }, []);
+      setSalaryAmount(centsToAmountString(summary.salaryCents));
+      setSavingsMessage(summary.savingsMessage ?? '');
+      setCategories(categoryFormStateFromSummary(summary));
+    },
+    [profileSalaryCents],
+  );
 
   const refreshSummaries = useCallback(async () => {
     if (!token) return;
@@ -116,15 +129,17 @@ export function Analytics() {
       setLoading(true);
       setError(null);
       try {
-        const [schedule, rows] = await Promise.all([
+        const [schedule, rows, dashboard] = await Promise.all([
           getSummarySchedule(token, controller.signal),
           getMySummaries(token, controller.signal),
+          getTemplateDashboard(token, controller.signal),
         ]);
         if (controller.signal.aborted) return;
 
         setTimezone(schedule.timezone);
         setCurrency(schedule.currency);
         setSummaries(rows);
+        setProfileSalaryCents(dashboard.salaryCents);
 
         const current = currentMonthInTimezone(schedule.timezone);
         const defaultPeriod = previousPeriod(current);

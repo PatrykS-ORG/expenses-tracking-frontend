@@ -25,11 +25,15 @@ export function AppLayout() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8">
-          <NavLink to="/" aria-label={t('navigation.dashboard')}>
+        <div className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <NavLink
+            to="/"
+            aria-label={t('navigation.dashboard')}
+            className="shrink-0"
+          >
             <SpendwellLogo size="md" inheritBackground />
           </NavLink>
-          <nav className="order-3 flex w-full items-center gap-1 sm:order-none sm:w-auto">
+          <nav className="order-3 flex flex-wrap w-full items-center gap-1 sm:order-none sm:w-auto">
             <NavLink to="/" end className={linkClass}>
               <LayoutDashboard className="h-4 w-4" />
               {t('navigation.dashboard')}
