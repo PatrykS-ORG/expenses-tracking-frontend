@@ -86,12 +86,7 @@ export function Analytics() {
 
   const canCreateForPeriod =
     selectedPeriod !== '' &&
-    isPeriodBefore(selectedPeriod, previousMonth) &&
-    !selectedSummary;
-
-  const isScheduledPending =
-    selectedPeriod !== '' &&
-    selectedPeriod === previousMonth &&
+    isPeriodBefore(selectedPeriod, currentPeriod) &&
     !selectedSummary;
 
   const resetForm = useCallback(
@@ -359,17 +354,6 @@ export function Analytics() {
             onCancel={handleCancelForm}
             cancelLabel={t('analytics.cancelEdit')}
           />
-        ) : isScheduledPending ? (
-          <section className="rounded-2xl border border-blue-100 bg-blue-50/60 p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">
-              {t('analytics.scheduledPendingTitle')}
-            </h2>
-            <p className="mt-2 text-sm text-gray-700">
-              {t('analytics.scheduledPendingMessage', {
-                month: formatPeriodLabel(selectedPeriod, locale),
-              })}
-            </p>
-          </section>
         ) : canCreateForPeriod && viewMode === 'create' ? (
           <ManualSummaryForm
             period={selectedPeriod}
