@@ -110,7 +110,9 @@ export function AnalyticsCharts({
   t,
   categoryLabel,
 }: AnalyticsChartsProps) {
-  if (summaries.length === 0) {
+  // Include in-progress live months (id starts with live-) so MoM works before
+  // any SummaryAnalytics row exists.
+  if (summaries.length === 0 && !selectedSummary) {
     return (
       <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <p className="text-sm text-gray-500">
@@ -136,8 +138,9 @@ export function AnalyticsCharts({
   });
   const categoryCaption = selectedSummary
     ? t('analytics.chartsCategoryCaption', {
-        source:
-          selectedSummary.source === 'MANUAL'
+        source: selectedSummary.id.startsWith('live-')
+          ? t('analytics.sourceInProgress')
+          : selectedSummary.source === 'MANUAL'
             ? t('analytics.sourceManual')
             : t('analytics.sourceScheduled'),
         period: selectedSummary.period,

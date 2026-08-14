@@ -2,17 +2,30 @@ import { useCallback, useEffect, useState } from 'react';
 import { ScanSearch, Upload } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { CategoryExpenseForm } from './analytics/CategoryExpenseForm';
+import { CategorySuggestionsModal } from './analytics/CategorySuggestionsModal';
+import {
+  applyCategorySuggestions,
+  buildCurrentMonthExpensesPayload,
+  categoryFormStateFromCurrentMonth,
+  emptyCategoryFormState,
+  type CategoryFormState,
+  type UnassignedExpenseItem,
+} from './analytics/manualSummaryFormState';
 import { featureFlags } from '../lib/featureFlags';
 import { centsToAmountString } from '../lib/money';
 import {
-  getCurrentExpenseFile,
+  getCurrentMonthExpenses,
   getTemplateDashboard,
-  overwriteCurrentExpenseFile,
+  saveCurrentMonthExpenses,
+  suggestExpenseCategories,
   updateDataSource,
   updateSalary,
   uploadExpenseFile,
   type DataSourceType,
+  type ExpenseCategorySuggestion,
 } from '../services/onboarding.service';
+import type { SummaryCategoryKey } from '../types/analytics.types';
 import { useAuthStore } from '../store/useAuthStore';
 import { runWithBlockingLoader } from '../store/useBlockingLoaderStore';
 
@@ -23,15 +36,38 @@ export function ExpenseSourcePanel() {
     useState<DataSourceType>('FILE_UPLOAD');
   const [nextcloudPath, setNextcloudPath] = useState('');
   const [uploadedFilePath, setUploadedFilePath] = useState<string | null>(null);
-  const [fileContent, setFileContent] = useState('');
-  const [savedContent, setSavedContent] = useState('');
+  const [categories, setCategories] = useState<CategoryFormState>(
+    emptyCategoryFormState(),
+  );
+  const [unassigned, setUnassigned] = useState<UnassignedExpenseItem[]>([]);
+  const [savedSnapshot, setSavedSnapshot] = useState('');
   const [salaryAmount, setSalaryAmount] = useState('');
   const [savedSalaryAmount, setSavedSalaryAmount] = useState('');
   const [salaryReady, setSalaryReady] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [suggestBusy, setSuggestBusy] = useState(false);
+  const [pendingSuggestions, setPendingSuggestions] = useState<
+    ExpenseCategorySuggestion[] | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const categoryLabel = useCallback(
+    (key: SummaryCategoryKey) => t(`analytics.categories.${key}`),
+    [t],
+  );
+
+  const snapshotKey = useCallback(
+    (
+      nextCategories: CategoryFormState,
+      nextUnassigned: UnassignedExpenseItem[],
+    ) =>
+      JSON.stringify(
+        buildCurrentMonthExpensesPayload(nextCategories, nextUnassigned),
+      ),
+    [],
+  );
 
   const applySalaryCents = useCallback((salaryCents: number | null) => {
     const formatted =
@@ -42,6 +78,22 @@ export function ExpenseSourcePanel() {
     setSavedSalaryAmount(formatted);
     setSalaryReady(true);
   }, []);
+
+  const applyExpenses = useCallback(
+    (payload: {
+      categories: Array<{
+        key: string;
+        items: Array<{ name: string; amount: string }>;
+      }>;
+      unassigned: Array<{ name: string; amount: string }>;
+    }) => {
+      const parsed = categoryFormStateFromCurrentMonth(payload);
+      setCategories(parsed.categories);
+      setUnassigned(parsed.unassigned);
+      setSavedSnapshot(snapshotKey(parsed.categories, parsed.unassigned));
+    },
+    [snapshotKey],
+  );
 
   const refreshDashboardMeta = useCallback(async () => {
     if (!token) return;
@@ -55,12 +107,10 @@ export function ExpenseSourcePanel() {
 
   const load = useCallback(async () => {
     if (!token) return;
-    const dashboard = await refreshDashboardMeta();
-    if (!dashboard?.uploadedFilePath) return;
-    const file = await getCurrentExpenseFile(token);
-    setFileContent(file.content);
-    setSavedContent(file.content);
-  }, [refreshDashboardMeta, token]);
+    await refreshDashboardMeta();
+    const expenses = await getCurrentMonthExpenses(token);
+    applyExpenses(expenses);
+  }, [applyExpenses, refreshDashboardMeta, token]);
 
   useEffect(() => {
     void load().catch((loadError) =>
@@ -100,8 +150,53 @@ export function ExpenseSourcePanel() {
     }
   };
 
+  const handleSuggestCategories = () => {
+    if (!token) return;
+    setSuggestBusy(true);
+    setError(null);
+    void runWithBlockingLoader(async () => {
+      // Persist current edits first so AI sees the latest unassigned lines.
+      const payload = buildCurrentMonthExpensesPayload(categories, unassigned);
+      const saved = await saveCurrentMonthExpenses(token, payload);
+      const parsed = categoryFormStateFromCurrentMonth(saved);
+      setCategories(parsed.categories);
+      setUnassigned(parsed.unassigned);
+      setSavedSnapshot(snapshotKey(parsed.categories, parsed.unassigned));
+
+      const suggestions = await suggestExpenseCategories(token);
+      setPendingSuggestions(suggestions);
+    }, t('dashboard.suggestingCategories'))
+      .catch((suggestError) => {
+        setError(
+          suggestError instanceof Error
+            ? suggestError.message
+            : t('dashboard.suggestCategoriesError'),
+        );
+      })
+      .finally(() => setSuggestBusy(false));
+  };
+
+  const handleAcceptSuggestions = () => {
+    if (!pendingSuggestions) return;
+    const merged = applyCategorySuggestions(
+      categories,
+      unassigned,
+      pendingSuggestions,
+    );
+    setCategories(merged.categories);
+    setUnassigned(merged.unassigned);
+    setPendingSuggestions(null);
+    setSuccess(t('dashboard.categoriesSuggested'));
+  };
+
+  const handleDeclineSuggestions = () => {
+    setPendingSuggestions(null);
+    setSuccess(t('dashboard.categoriesSuggestionDeclined'));
+  };
+
   const salaryMissing = salaryReady && savedSalaryAmount.trim() === '';
   const salaryDirty = salaryAmount.trim() !== savedSalaryAmount.trim();
+  const expensesDirty = snapshotKey(categories, unassigned) !== savedSnapshot;
 
   return (
     <section
@@ -229,12 +324,11 @@ export function ExpenseSourcePanel() {
               event.preventDefault();
               void run(async () => {
                 if (!token || !selectedFile) return;
-                const uploadedText = await selectedFile.text();
                 await uploadExpenseFile(token, selectedFile);
                 setSelectedFile(null);
-                setFileContent(uploadedText);
-                setSavedContent(uploadedText);
                 await refreshDashboardMeta();
+                const expenses = await getCurrentMonthExpenses(token);
+                applyExpenses(expenses);
               }, t('dashboard.fileUploaded'));
             }}
           >
@@ -259,44 +353,59 @@ export function ExpenseSourcePanel() {
               {t('dashboard.currentFile')} {uploadedFilePath}
             </p>
           )}
+
+          <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+            {t('dashboard.expenseCategoriesHint')}
+          </p>
+
           <form
             onSubmit={(event) => {
               event.preventDefault();
               void run(async () => {
-                if (!token || !fileContent.trim()) return;
-                const contentToSave = fileContent;
-                await overwriteCurrentExpenseFile(
-                  token,
-                  contentToSave,
-                  uploadedFilePath,
+                if (!token) return;
+                const payload = buildCurrentMonthExpensesPayload(
+                  categories,
+                  unassigned,
                 );
-                // Keep local content — a storage re-fetch can return a stale cached copy.
-                setFileContent(contentToSave);
-                setSavedContent(contentToSave);
+                const saved = await saveCurrentMonthExpenses(token, payload);
+                applyExpenses(saved);
                 await refreshDashboardMeta();
               }, t('dashboard.expenseFileSaved'));
             }}
           >
-            <p className="mb-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-              {t('dashboard.expenseFileFormatHint')}
-            </p>
-            <textarea
-              value={fileContent}
-              onChange={(event) => setFileContent(event.target.value)}
-              rows={12}
-              placeholder={t('dashboard.expenseTextareaPlaceholder')}
-              className="w-full rounded-md border px-3 py-2 font-mono text-sm"
+            <CategoryExpenseForm
+              categories={categories}
+              unassigned={unassigned}
+              showUnassigned
+              autoTotalFromItems
+              busy={busy || suggestBusy}
+              suggestBusy={suggestBusy}
+              categoriesTitle={t('analytics.categoriesTitle')}
+              categoryLabel={categoryLabel}
+              categoryTotalLabel={t('analytics.categoryTotalLabel')}
+              lineItemsLabel={t('analytics.lineItemsLabel')}
+              itemNameLabel={t('analytics.itemNameLabel')}
+              itemAmountLabel={t('analytics.itemAmountLabel')}
+              addLineItemLabel={t('analytics.addLineItem')}
+              removeLineItemLabel={t('analytics.removeLineItem')}
+              unassignedTitle={t('dashboard.unassignedTitle')}
+              unassignedHint={t('dashboard.unassignedHint')}
+              moveToCategoryLabel={t('dashboard.moveToCategory')}
+              suggestCategoriesLabel={t('dashboard.suggestCategories')}
+              addUnassignedLabel={t('dashboard.addUnassigned')}
+              onCategoriesChange={setCategories}
+              onUnassignedChange={setUnassigned}
+              onSuggestCategories={handleSuggestCategories}
             />
-            <div className="mt-2 flex items-center justify-between gap-3">
+
+            <div className="mt-4 flex items-center justify-between gap-3">
               <p className="text-xs text-gray-500">
-                {fileContent !== savedContent
+                {expensesDirty
                   ? t('dashboard.unsavedFileChanges')
                   : t('dashboard.fileSaved')}
               </p>
               <button
-                disabled={
-                  busy || !fileContent.trim() || fileContent === savedContent
-                }
+                disabled={busy || suggestBusy || !expensesDirty}
                 className="rounded-md bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
               >
                 {t('common.save')}
@@ -305,6 +414,20 @@ export function ExpenseSourcePanel() {
           </form>
         </div>
       )}
+
+      <CategorySuggestionsModal
+        open={pendingSuggestions !== null}
+        suggestions={pendingSuggestions ?? []}
+        categoryLabel={categoryLabel}
+        title={t('dashboard.suggestReviewTitle')}
+        description={t('dashboard.suggestReviewDescription')}
+        acceptLabel={t('dashboard.suggestAccept')}
+        declineLabel={t('dashboard.suggestDecline')}
+        emptyLabel={t('dashboard.suggestEmpty')}
+        itemAmountLabel={t('analytics.itemAmountLabel')}
+        onAccept={handleAcceptSuggestions}
+        onDecline={handleDeclineSuggestions}
+      />
     </section>
   );
 }

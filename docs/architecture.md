@@ -82,6 +82,8 @@ Page-level local state is used in `Dashboard` for:
 - `updateSummarySchedule`
 - `approveReceiptExpenses`
 - `uploadExpenseFile`
+- `currentMonthExpenses` / `saveCurrentMonthExpenses` / `suggestExpenseCategories`
+- `overwriteCurrentExpenseFile`
 - `currentExpenseFile`
 - `overwriteCurrentExpenseFile`
 - `scanReceipt`
@@ -102,9 +104,10 @@ All backend calls go through this endpoint. File uploads use base64-encoded muta
 - template gallery (predefined + user templates),
 - active template switch,
 - template preview with web/mobile toggle and touch-like drag-to-scroll (see below),
-- source selector:
-  - Upload file (`.txt`, `.csv`)
-  - Preview/edit current uploaded file content and save overwrite
+- expense source panel:
+  - Upload file (`.txt`, `.csv`) — plain lines land in **Unassigned**
+  - Category-based current-month editor (`CategoryExpenseForm`) with optional AI **Suggest categories**
+  - Save via `saveCurrentMonthExpenses` (writes optional `CategoryKey | name amount` lines)
   - Nextcloud path,
 - automatic summary schedule settings (day, hour, timezone, enable/disable),
 - test-email trigger,
@@ -115,6 +118,13 @@ All backend calls go through this endpoint. File uploads use base64-encoded muta
 - `dataSourceType`,
 - `nextcloudFilePath`,
 - `uploadedFilePath`.
+
+## Analytics flow
+
+`/analytics` shows ended-month summaries plus an **in-progress current month**:
+
+- Ended months: view / create / edit `SummaryAnalytics` via manual summary form.
+- Current month: loads `currentMonthExpenses`, editable category form (same as Dashboard), live charts from an in-memory snapshot (no DB row until the month ends).
 
 ## Receipt scanner flow
 
