@@ -58,6 +58,27 @@ export interface CurrentExpenseFile {
   content: string;
 }
 
+export interface CurrentMonthExpenseItem {
+  name: string;
+  amount: string;
+}
+
+export interface CurrentMonthExpenseCategory {
+  key: string;
+  items: CurrentMonthExpenseItem[];
+}
+
+export interface CurrentMonthExpenses {
+  categories: CurrentMonthExpenseCategory[];
+  unassigned: CurrentMonthExpenseItem[];
+}
+
+export interface ExpenseCategorySuggestion {
+  name: string;
+  amount: string;
+  categoryKey: string;
+}
+
 export interface ReceiptScanResult {
   extractedText: string;
 }
@@ -452,6 +473,101 @@ export async function overwriteCurrentExpenseFile(
     `,
     { input },
   );
+}
+
+export async function getCurrentMonthExpenses(
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<CurrentMonthExpenses> {
+  const data = await graphqlRequest<{
+    currentMonthExpenses?: CurrentMonthExpenses;
+  }>(
+    accessToken,
+    `
+      query CurrentMonthExpenses {
+        currentMonthExpenses {
+          categories {
+            key
+            items {
+              name
+              amount
+            }
+          }
+          unassigned {
+            name
+            amount
+          }
+        }
+      }
+    `,
+    undefined,
+    signal,
+  );
+
+  return (
+    data.currentMonthExpenses ?? {
+      categories: [],
+      unassigned: [],
+    }
+  );
+}
+
+export async function saveCurrentMonthExpenses(
+  accessToken: string,
+  input: CurrentMonthExpenses,
+): Promise<CurrentMonthExpenses> {
+  const data = await graphqlRequest<{
+    saveCurrentMonthExpenses?: CurrentMonthExpenses;
+  }>(
+    accessToken,
+    `
+      mutation SaveCurrentMonthExpenses($input: SaveCurrentMonthExpensesInput!) {
+        saveCurrentMonthExpenses(input: $input) {
+          categories {
+            key
+            items {
+              name
+              amount
+            }
+          }
+          unassigned {
+            name
+            amount
+          }
+        }
+      }
+    `,
+    { input },
+  );
+
+  if (!data.saveCurrentMonthExpenses) {
+    throw new Error('Failed to save current month expenses');
+  }
+
+  return data.saveCurrentMonthExpenses;
+}
+
+export async function suggestExpenseCategories(
+  accessToken: string,
+): Promise<ExpenseCategorySuggestion[]> {
+  const data = await graphqlRequest<{
+    suggestExpenseCategories?: { suggestions: ExpenseCategorySuggestion[] };
+  }>(
+    accessToken,
+    `
+      mutation SuggestExpenseCategories {
+        suggestExpenseCategories {
+          suggestions {
+            name
+            amount
+            categoryKey
+          }
+        }
+      }
+    `,
+  );
+
+  return data.suggestExpenseCategories?.suggestions ?? [];
 }
 
 export async function sendTestEmail(

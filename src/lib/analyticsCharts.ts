@@ -5,6 +5,7 @@ import {
   formatPeriodShortLabel,
   shiftPeriod,
 } from './period';
+import { amountStringToCents } from './money';
 import type {
   SummaryAnalytics,
   SummaryCategoryKey,
@@ -152,4 +153,79 @@ export function formatMomRangeCaption(
   }
   const lastYear = last.period.slice(0, 4);
   return `${formatPeriodShortLabel(first.period, locale)}–${formatPeriodShortLabel(last.period, locale)} ${lastYear}`;
+}
+
+/**
+ * Builds an in-memory SummaryAnalytics snapshot for the in-progress month
+ * so existing charts can render without a persisted SummaryAnalytics row.
+ * Unassigned items are folded into Other for the donut.
+ */
+export function buildLiveSummaryFromCategories(params: {
+  period: string;
+  currency: string;
+  salaryCents: number;
+  categories: Record<
+    SummaryCategoryKey,
+    { total: string; items: Array<{ name: string; amount: string }> }
+  >;
+  unassigned: Array<{ name: string; amount: string }>;
+}): SummaryAnalytics {
+  const categories = CANONICAL_CATEGORY_KEYS.flatMap((key) => {
+    const row = params.categories[key];
+    const items = row.items
+      .filter((item) => item.name.trim() && item.amount.trim())
+      .map((item) => ({
+        name: item.name.trim(),
+        amountCents: amountStringToCents(item.amount),
+      }));
+
+    // Current-month live preview is item-driven. Do not fall back to a stale
+    // category total when items were moved away (that double-counted spend).
+    let totalCents = items.reduce((sum, item) => sum + item.amountCents, 0);
+
+    if (key === 'Other') {
+      const unassignedItems = params.unassigned
+        .filter((item) => item.name.trim() && item.amount.trim())
+        .map((item) => ({
+          name: item.name.trim(),
+          amountCents: amountStringToCents(item.amount),
+        }));
+      items.push(...unassignedItems);
+      totalCents += unassignedItems.reduce(
+        (sum, item) => sum + item.amountCents,
+        0,
+      );
+    }
+
+    if (totalCents === 0 && items.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        name: key,
+        totalCents,
+        items,
+      },
+    ];
+  });
+
+  const totalExpensesCents = categories.reduce(
+    (sum, category) => sum + category.totalCents,
+    0,
+  );
+
+  return {
+    id: `live-${params.period}`,
+    period: params.period,
+    source: 'MANUAL',
+    currency: params.currency,
+    salaryCents: params.salaryCents,
+    totalExpensesCents,
+    savingsCents: params.salaryCents - totalExpensesCents,
+    savingsMessage: null,
+    categories,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
 }

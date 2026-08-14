@@ -4,14 +4,21 @@ import { useTranslation } from 'react-i18next';
 import { CalendarDays } from 'lucide-react';
 import { DashboardAlerts } from '../components/DashboardAlerts';
 import { AnalyticsCharts } from '../components/analytics/AnalyticsCharts';
+import { CategoryExpenseForm } from '../components/analytics/CategoryExpenseForm';
+import { CategorySuggestionsModal } from '../components/analytics/CategorySuggestionsModal';
+import { ManualSummaryForm } from '../components/analytics/ManualSummaryForm';
 import {
-  ManualSummaryForm,
+  applyCategorySuggestions,
+  buildCurrentMonthExpensesPayload,
   buildManualSummaryCategories,
+  categoryFormStateFromCurrentMonth,
   categoryFormStateFromSummary,
   emptyCategoryFormState,
   type CategoryFormState,
-} from '../components/analytics/ManualSummaryForm';
+  type UnassignedExpenseItem,
+} from '../components/analytics/manualSummaryFormState';
 import { SummaryDetailPanel } from '../components/analytics/SummaryDetailPanel';
+import { buildLiveSummaryFromCategories } from '../lib/analyticsCharts';
 import {
   currentMonthInTimezone,
   formatPeriodLabel,
@@ -19,10 +26,14 @@ import {
   listEndedPeriods,
   previousPeriod,
 } from '../lib/period';
-import { centsToAmountString } from '../lib/money';
+import { amountStringToCents, centsToAmountString } from '../lib/money';
 import {
+  getCurrentMonthExpenses,
   getSummarySchedule,
   getTemplateDashboard,
+  saveCurrentMonthExpenses,
+  suggestExpenseCategories,
+  type ExpenseCategorySuggestion,
 } from '../services/onboarding.service';
 import {
   createManualSummary,
@@ -54,6 +65,10 @@ export function Analytics() {
   const [loading, setLoading] = useState(true);
   const [loadingMonth, setLoadingMonth] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [suggestBusy, setSuggestBusy] = useState(false);
+  const [pendingSuggestions, setPendingSuggestions] = useState<
+    ExpenseCategorySuggestion[] | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('detail');
@@ -65,6 +80,11 @@ export function Analytics() {
   const [categories, setCategories] = useState<CategoryFormState>(
     emptyCategoryFormState(),
   );
+  const [unassigned, setUnassigned] = useState<UnassignedExpenseItem[]>([]);
+  const [currentMonthSavedSnapshot, setCurrentMonthSavedSnapshot] =
+    useState('');
+  const [currentMonthChartSummary, setCurrentMonthChartSummary] =
+    useState<SummaryAnalytics | null>(null);
 
   const currentPeriod = useMemo(
     () => currentMonthInTimezone(timezone),
@@ -78,6 +98,8 @@ export function Analytics() {
     () => listEndedPeriods(currentPeriod),
     [currentPeriod],
   );
+  const isCurrentMonth =
+    selectedPeriod !== '' && selectedPeriod === currentPeriod;
 
   const categoryLabel = useCallback(
     (key: SummaryCategoryKey) => t(`analytics.categories.${key}`),
@@ -88,6 +110,68 @@ export function Analytics() {
     selectedPeriod !== '' &&
     isPeriodBefore(selectedPeriod, currentPeriod) &&
     !selectedSummary;
+
+  const currentMonthSnapshot = useCallback(
+    (
+      nextCategories: CategoryFormState,
+      nextUnassigned: UnassignedExpenseItem[],
+    ) =>
+      JSON.stringify(
+        buildCurrentMonthExpensesPayload(nextCategories, nextUnassigned),
+      ),
+    [],
+  );
+
+  const buildCurrentMonthLiveSummary = useCallback(
+    (
+      nextCategories: CategoryFormState,
+      nextUnassigned: UnassignedExpenseItem[],
+      period = currentPeriod,
+    ) =>
+      buildLiveSummaryFromCategories({
+        period,
+        currency,
+        salaryCents: profileSalaryCents ?? 0,
+        categories: nextCategories,
+        unassigned: nextUnassigned,
+      }),
+    [currency, currentPeriod, profileSalaryCents],
+  );
+
+  const liveSummary = useMemo(() => {
+    if (!isCurrentMonth) return null;
+    return buildCurrentMonthLiveSummary(categories, unassigned, selectedPeriod);
+  }, [
+    buildCurrentMonthLiveSummary,
+    categories,
+    isCurrentMonth,
+    selectedPeriod,
+    unassigned,
+  ]);
+
+  const chartSummary = isCurrentMonth ? liveSummary : selectedSummary;
+
+  // Keep MoM in sync while editing the current month; otherwise use last loaded snapshot.
+  useEffect(() => {
+    if (liveSummary) {
+      setCurrentMonthChartSummary(liveSummary);
+    }
+  }, [liveSummary]);
+
+  /** Persisted ended-month rows plus the in-progress month for MoM bars. */
+  const chartsSummaries = useMemo(() => {
+    if (!currentMonthChartSummary) return summaries;
+    return [
+      ...summaries.filter(
+        (summary) => summary.period !== currentMonthChartSummary.period,
+      ),
+      currentMonthChartSummary,
+    ];
+  }, [currentMonthChartSummary, summaries]);
+
+  const momThroughPeriod = currentMonthChartSummary
+    ? currentPeriod
+    : previousMonth;
 
   const resetForm = useCallback(
     (summary: SummaryAnalytics | null) => {
@@ -107,6 +191,27 @@ export function Analytics() {
       setCategories(categoryFormStateFromSummary(summary));
     },
     [profileSalaryCents],
+  );
+
+  const applyCurrentMonthExpenses = useCallback(
+    (payload: {
+      categories: Array<{
+        key: string;
+        items: Array<{ name: string; amount: string }>;
+      }>;
+      unassigned: Array<{ name: string; amount: string }>;
+    }) => {
+      const parsed = categoryFormStateFromCurrentMonth(payload);
+      setCategories(parsed.categories);
+      setUnassigned(parsed.unassigned);
+      setCurrentMonthSavedSnapshot(
+        currentMonthSnapshot(parsed.categories, parsed.unassigned),
+      );
+      setCurrentMonthChartSummary(
+        buildCurrentMonthLiveSummary(parsed.categories, parsed.unassigned),
+      );
+    },
+    [buildCurrentMonthLiveSummary, currentMonthSnapshot],
   );
 
   const refreshSummaries = useCallback(async () => {
@@ -139,6 +244,28 @@ export function Analytics() {
         const current = currentMonthInTimezone(schedule.timezone);
         const defaultPeriod = previousPeriod(current);
         setSelectedPeriod(defaultPeriod);
+
+        // Prefetch current-month expenses so MoM includes the in-progress bar
+        // even when the selector defaults to the previous month.
+        try {
+          const currentExpenses = await getCurrentMonthExpenses(
+            token,
+            controller.signal,
+          );
+          if (controller.signal.aborted) return;
+          const parsed = categoryFormStateFromCurrentMonth(currentExpenses);
+          setCurrentMonthChartSummary(
+            buildLiveSummaryFromCategories({
+              period: current,
+              currency: schedule.currency,
+              salaryCents: dashboard.salaryCents ?? 0,
+              categories: parsed.categories,
+              unassigned: parsed.unassigned,
+            }),
+          );
+        } catch {
+          // Charts can still render ended months without the live overlay.
+        }
       } catch (loadError) {
         if (controller.signal.aborted) return;
         setError(
@@ -164,7 +291,20 @@ export function Analytics() {
 
     const loadMonth = async () => {
       setLoadingMonth(true);
+      setError(null);
       try {
+        if (selectedPeriod === currentMonthInTimezone(timezone)) {
+          const expenses = await getCurrentMonthExpenses(
+            token,
+            controller.signal,
+          );
+          if (controller.signal.aborted) return;
+          setSelectedSummary(null);
+          applyCurrentMonthExpenses(expenses);
+          setViewMode('detail');
+          return;
+        }
+
         const summary = await getMySummary(
           token,
           selectedPeriod,
@@ -173,6 +313,7 @@ export function Analytics() {
         if (controller.signal.aborted) return;
 
         setSelectedSummary(summary);
+        setUnassigned([]);
         resetForm(summary);
         setViewMode('detail');
       } catch (loadError) {
@@ -191,7 +332,15 @@ export function Analytics() {
 
     void loadMonth();
     return () => controller.abort();
-  }, [loading, resetForm, selectedPeriod, t, token]);
+  }, [
+    applyCurrentMonthExpenses,
+    loading,
+    resetForm,
+    selectedPeriod,
+    t,
+    timezone,
+    token,
+  ]);
 
   const handlePeriodChange = (period: string) => {
     setSuccess(null);
@@ -220,7 +369,7 @@ export function Analytics() {
     event.preventDefault();
 
     void runWithBlockingLoader(async () => {
-      if (!token || !selectedPeriod) return;
+      if (!token || !selectedPeriod || isCurrentMonth) return;
 
       setBusy(true);
       setError(null);
@@ -258,6 +407,83 @@ export function Analytics() {
     }, t('common.saving'));
   };
 
+  const handleSaveCurrentMonth = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    void runWithBlockingLoader(async () => {
+      if (!token) return;
+      setBusy(true);
+      setError(null);
+      setSuccess(null);
+      try {
+        const payload = buildCurrentMonthExpensesPayload(
+          categories,
+          unassigned,
+        );
+        const saved = await saveCurrentMonthExpenses(token, payload);
+        applyCurrentMonthExpenses(saved);
+        setSuccess(t('analytics.currentMonthSaveSuccess'));
+      } catch (saveError) {
+        setError(
+          saveError instanceof Error
+            ? saveError.message
+            : t('analytics.saveError'),
+        );
+      } finally {
+        setBusy(false);
+      }
+    }, t('common.saving'));
+  };
+
+  const handleSuggestCategories = () => {
+    if (!token) return;
+    setSuggestBusy(true);
+    setError(null);
+    void runWithBlockingLoader(async () => {
+      const payload = buildCurrentMonthExpensesPayload(categories, unassigned);
+      const saved = await saveCurrentMonthExpenses(token, payload);
+      const parsed = categoryFormStateFromCurrentMonth(saved);
+      setCategories(parsed.categories);
+      setUnassigned(parsed.unassigned);
+      setCurrentMonthSavedSnapshot(
+        currentMonthSnapshot(parsed.categories, parsed.unassigned),
+      );
+
+      const suggestions = await suggestExpenseCategories(token);
+      setPendingSuggestions(suggestions);
+    }, t('dashboard.suggestingCategories'))
+      .catch((suggestError) => {
+        setError(
+          suggestError instanceof Error
+            ? suggestError.message
+            : t('dashboard.suggestCategoriesError'),
+        );
+      })
+      .finally(() => setSuggestBusy(false));
+  };
+
+  const handleAcceptSuggestions = () => {
+    if (!pendingSuggestions) return;
+    const merged = applyCategorySuggestions(
+      categories,
+      unassigned,
+      pendingSuggestions,
+    );
+    setCategories(merged.categories);
+    setUnassigned(merged.unassigned);
+    setPendingSuggestions(null);
+    setSuccess(t('dashboard.categoriesSuggested'));
+  };
+
+  const handleDeclineSuggestions = () => {
+    setPendingSuggestions(null);
+    setSuccess(t('dashboard.categoriesSuggestionDeclined'));
+  };
+
+  const currentMonthDirty =
+    isCurrentMonth &&
+    currentMonthSnapshot(categories, unassigned) !== currentMonthSavedSnapshot;
+
   if (loading) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
@@ -287,6 +513,11 @@ export function Analytics() {
               onChange={(event) => handlePeriodChange(event.target.value)}
               className="min-w-48 rounded-md border px-3 py-2 font-normal"
             >
+              <option value={currentPeriod}>
+                {t('analytics.currentMonthOption', {
+                  month: formatPeriodLabel(currentPeriod, locale),
+                })}
+              </option>
               {endedPeriods.map((period) => (
                 <option key={period} value={period}>
                   {formatPeriodLabel(period, locale)}
@@ -297,10 +528,10 @@ export function Analytics() {
         </section>
 
         <AnalyticsCharts
-          summaries={summaries}
-          selectedSummary={selectedSummary}
+          summaries={chartsSummaries}
+          selectedSummary={chartSummary}
           selectedPeriod={selectedPeriod}
-          throughPeriod={previousMonth}
+          throughPeriod={momThroughPeriod}
           loadingMonth={loadingMonth}
           locale={locale}
           currency={currency}
@@ -312,6 +543,80 @@ export function Analytics() {
           <div className="flex items-center justify-center rounded-2xl border border-gray-200 bg-white p-12 shadow-sm">
             <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600" />
           </div>
+        ) : isCurrentMonth ? (
+          <section className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                {t('analytics.currentMonthTitle')}
+              </h2>
+              <p className="mt-1 text-sm text-gray-600">
+                {t('analytics.currentMonthMessage')}
+              </p>
+              {profileSalaryCents != null && profileSalaryCents > 0 && (
+                <p className="mt-2 text-sm text-gray-700">
+                  {t('analytics.incomeLabel')}:{' '}
+                  {centsToAmountString(profileSalaryCents)} {currency}
+                </p>
+              )}
+              {liveSummary && (
+                <p className="mt-1 text-sm text-gray-700">
+                  {t('analytics.expensesLabel')}:{' '}
+                  {centsToAmountString(liveSummary.totalExpensesCents)}{' '}
+                  {currency}
+                  {unassigned.some(
+                    (item) =>
+                      item.name.trim() && amountStringToCents(item.amount) > 0,
+                  ) && (
+                    <span className="text-amber-700">
+                      {' '}
+                      ({t('analytics.includesUnassigned')})
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
+
+            <form onSubmit={handleSaveCurrentMonth}>
+              <CategoryExpenseForm
+                categories={categories}
+                unassigned={unassigned}
+                showUnassigned
+                autoTotalFromItems
+                busy={busy || suggestBusy}
+                suggestBusy={suggestBusy}
+                categoriesTitle={t('analytics.categoriesTitle')}
+                categoryLabel={categoryLabel}
+                categoryTotalLabel={t('analytics.categoryTotalLabel')}
+                lineItemsLabel={t('analytics.lineItemsLabel')}
+                itemNameLabel={t('analytics.itemNameLabel')}
+                itemAmountLabel={t('analytics.itemAmountLabel')}
+                addLineItemLabel={t('analytics.addLineItem')}
+                removeLineItemLabel={t('analytics.removeLineItem')}
+                unassignedTitle={t('dashboard.unassignedTitle')}
+                unassignedHint={t('dashboard.unassignedHint')}
+                moveToCategoryLabel={t('dashboard.moveToCategory')}
+                suggestCategoriesLabel={t('dashboard.suggestCategories')}
+                addUnassignedLabel={t('dashboard.addUnassigned')}
+                onCategoriesChange={setCategories}
+                onUnassignedChange={setUnassigned}
+                onSuggestCategories={handleSuggestCategories}
+              />
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <p className="text-xs text-gray-500">
+                  {currentMonthDirty
+                    ? t('dashboard.unsavedFileChanges')
+                    : t('dashboard.fileSaved')}
+                </p>
+                <button
+                  type="submit"
+                  disabled={busy || suggestBusy || !currentMonthDirty}
+                  className="rounded-md bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
+                >
+                  {t('common.save')}
+                </button>
+              </div>
+            </form>
+          </section>
         ) : selectedSummary && viewMode === 'detail' ? (
           <SummaryDetailPanel
             summary={selectedSummary}
@@ -347,6 +652,7 @@ export function Analytics() {
             itemAmountLabel={t('analytics.itemAmountLabel')}
             addLineItemLabel={t('analytics.addLineItem')}
             removeLineItemLabel={t('analytics.removeLineItem')}
+            moveToCategoryLabel={t('dashboard.moveToCategory')}
             onSalaryAmountChange={setSalaryAmount}
             onSavingsMessageChange={setSavingsMessage}
             onCategoriesChange={setCategories}
@@ -372,6 +678,7 @@ export function Analytics() {
             itemAmountLabel={t('analytics.itemAmountLabel')}
             addLineItemLabel={t('analytics.addLineItem')}
             removeLineItemLabel={t('analytics.removeLineItem')}
+            moveToCategoryLabel={t('dashboard.moveToCategory')}
             onSalaryAmountChange={setSalaryAmount}
             onSavingsMessageChange={setSavingsMessage}
             onCategoriesChange={setCategories}
@@ -397,6 +704,20 @@ export function Analytics() {
           </section>
         ) : null}
       </div>
+
+      <CategorySuggestionsModal
+        open={pendingSuggestions !== null}
+        suggestions={pendingSuggestions ?? []}
+        categoryLabel={categoryLabel}
+        title={t('dashboard.suggestReviewTitle')}
+        description={t('dashboard.suggestReviewDescription')}
+        acceptLabel={t('dashboard.suggestAccept')}
+        declineLabel={t('dashboard.suggestDecline')}
+        emptyLabel={t('dashboard.suggestEmpty')}
+        itemAmountLabel={t('analytics.itemAmountLabel')}
+        onAccept={handleAcceptSuggestions}
+        onDecline={handleDeclineSuggestions}
+      />
     </main>
   );
 }
