@@ -37,6 +37,12 @@ Implemented frontend scope:
 
 A Husky pre-commit hook runs `lint-staged` (ESLint + Prettier) on staged files before each commit.
 
+## Releases / changelog
+
+- Root `CHANGELOG.md` is updated automatically on push to `production` (see `.github/workflows/release.yml`).
+- Prefer Conventional Commits (`feat:`, `fix:`) so release notes categorize correctly.
+- Do not hand-edit changelog sections in feature PRs.
+
 ## Directory structure
 
 ```

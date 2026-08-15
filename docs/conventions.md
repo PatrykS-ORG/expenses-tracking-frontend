@@ -33,6 +33,20 @@
 - `try/catch` in submit handlers with user-visible Polish error messages.
 - Disable submit buttons during pending requests.
 
+## Commit messages (changelog)
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) so production releases can categorize `CHANGELOG.md` entries:
+
+| Prefix  | Changelog section |
+| ------- | ----------------- |
+| `feat:` | Features          |
+| `fix:`  | Bug Fixes         |
+| other   | Other             |
+
+Examples: `feat: separate salary field`, `fix: show updated expense file after save`.
+
+Do not edit `CHANGELOG.md` in feature PRs — `.github/workflows/release.yml` prepends sections on each push to `production`. See the docs repo: `processes/release-and-changelog.md`.
+
 ## Error/loading patterns
 
 - Global app bootstrap loading: `App.tsx` spinner.
