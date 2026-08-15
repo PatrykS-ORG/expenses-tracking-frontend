@@ -8,6 +8,7 @@ import {
   scanReceipt,
 } from '../services/onboarding.service';
 import { runWithBlockingLoader } from '../store/useBlockingLoaderStore';
+import { useUnsavedChangesWarning } from '../store/useUnsavedChangesStore';
 
 export function ReceiptScanner() {
   const { t } = useTranslation();
@@ -39,6 +40,7 @@ export function ReceiptScanner() {
     () => extractedText.trim().length > 0 && extractedText !== lastScannedText,
     [extractedText, lastScannedText],
   );
+  useUnsavedChangesWarning(hasUnsavedReceiptChanges);
 
   const handleScanReceipt = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

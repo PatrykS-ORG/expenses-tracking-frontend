@@ -15,6 +15,8 @@
     "doNotCloseTab": "Do not close this tab until the operation finishes.",
     "leaveWhileLoadingTitle": "Operation in progress",
     "leaveWhileLoadingBody": "An action is still running. Leaving now may interrupt it. Are you sure you want to leave?",
+    "leaveUnsavedTitle": "Unsaved changes",
+    "leaveUnsavedBody": "You have unsaved changes. If you leave now, they will be lost. Are you sure you want to leave?",
     "stay": "Stay",
     "leaveAnyway": "Leave anyway",
     "backToDashboard": "Back to dashboard",
