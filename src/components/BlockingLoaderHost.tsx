@@ -2,18 +2,26 @@ import { useEffect, useState } from 'react';
 import { useBlocker } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useBlockingLoaderStore } from '../store/useBlockingLoaderStore';
+import { useUnsavedChangesStore } from '../store/useUnsavedChangesStore';
+
+type LeaveReason = 'loading' | 'unsaved' | null;
 
 export function BlockingLoaderHost() {
   const { t } = useTranslation();
   const isActive = useBlockingLoaderStore((state) => state.isActive);
   const message = useBlockingLoaderStore((state) => state.message);
-  const reset = useBlockingLoaderStore((state) => state.reset);
+  const resetLoader = useBlockingLoaderStore((state) => state.reset);
+  const hasUnsavedChanges = useUnsavedChangesStore(
+    (state) => state.hasUnsavedChanges,
+  );
   const [leavePromptOpen, setLeavePromptOpen] = useState(false);
+  const [leaveReason, setLeaveReason] = useState<LeaveReason>(null);
 
-  const blocker = useBlocker(isActive);
+  const shouldBlock = isActive || hasUnsavedChanges;
+  const blocker = useBlocker(shouldBlock);
 
   useEffect(() => {
-    if (!isActive) return;
+    if (!shouldBlock) return;
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
@@ -24,22 +32,27 @@ export function BlockingLoaderHost() {
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [isActive]);
+  }, [shouldBlock]);
 
   useEffect(() => {
+    if (blocker.state !== 'blocked') return;
+    setLeaveReason(isActive ? 'loading' : 'unsaved');
+    setLeavePromptOpen(true);
+  }, [blocker.state, isActive]);
+
+  // Form was saved while the leave dialog was open — dismiss without navigating.
+  useEffect(() => {
+    if (shouldBlock || !leavePromptOpen) return;
+    setLeavePromptOpen(false);
+    setLeaveReason(null);
     if (blocker.state === 'blocked') {
-      setLeavePromptOpen(true);
+      blocker.reset();
     }
-  }, [blocker.state]);
-
-  useEffect(() => {
-    if (!isActive) {
-      setLeavePromptOpen(false);
-    }
-  }, [isActive]);
+  }, [blocker, leavePromptOpen, shouldBlock]);
 
   const handleStay = () => {
     setLeavePromptOpen(false);
+    setLeaveReason(null);
     if (blocker.state === 'blocked') {
       blocker.reset();
     }
@@ -47,9 +60,13 @@ export function BlockingLoaderHost() {
 
   const handleLeave = () => {
     setLeavePromptOpen(false);
-    reset();
+    setLeaveReason(null);
+    // Proceed while still blocked; clearing dirty/loader first can cancel navigation.
     if (blocker.state === 'blocked') {
       blocker.proceed();
+    }
+    if (isActive) {
+      resetLoader();
     }
   };
 
@@ -89,10 +106,14 @@ export function BlockingLoaderHost() {
               id="leave-confirm-title"
               className="text-lg font-semibold text-gray-900"
             >
-              {t('common.leaveWhileLoadingTitle')}
+              {leaveReason === 'unsaved'
+                ? t('common.leaveUnsavedTitle')
+                : t('common.leaveWhileLoadingTitle')}
             </h2>
             <p className="mt-2 text-sm text-gray-600">
-              {t('common.leaveWhileLoadingBody')}
+              {leaveReason === 'unsaved'
+                ? t('common.leaveUnsavedBody')
+                : t('common.leaveWhileLoadingBody')}
             </p>
             <div className="mt-6 flex justify-end gap-2">
               <button

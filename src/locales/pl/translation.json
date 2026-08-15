@@ -15,6 +15,8 @@
     "doNotCloseTab": "Nie zamykaj tej karty, dopóki operacja się nie zakończy.",
     "leaveWhileLoadingTitle": "Operacja w toku",
     "leaveWhileLoadingBody": "Trwa wykonywanie akcji. Opuszczenie strony może ją przerwać. Czy na pewno chcesz wyjść?",
+    "leaveUnsavedTitle": "Niezapisane zmiany",
+    "leaveUnsavedBody": "Masz niezapisane zmiany. Jeśli wyjdziesz teraz, zostaną utracone. Czy na pewno chcesz wyjść?",
     "stay": "Zostań",
     "leaveAnyway": "Wyjdź mimo to",
     "backToDashboard": "Wróć do panelu",

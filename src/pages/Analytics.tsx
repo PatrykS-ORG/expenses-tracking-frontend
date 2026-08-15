@@ -6,6 +6,7 @@ import { DashboardAlerts } from '../components/DashboardAlerts';
 import { AnalyticsCharts } from '../components/analytics/AnalyticsCharts';
 import { CategoryExpenseForm } from '../components/analytics/CategoryExpenseForm';
 import { CategorySuggestionsModal } from '../components/analytics/CategorySuggestionsModal';
+import { ExpenseFormSaveBar } from '../components/analytics/ExpenseFormSaveBar';
 import { ManualSummaryForm } from '../components/analytics/ManualSummaryForm';
 import {
   applyCategorySuggestions,
@@ -47,6 +48,7 @@ import type {
 } from '../types/analytics.types';
 import { useAuthStore } from '../store/useAuthStore';
 import { runWithBlockingLoader } from '../store/useBlockingLoaderStore';
+import { useUnsavedChangesWarning } from '../store/useUnsavedChangesStore';
 
 type ViewMode = 'detail' | 'create' | 'edit';
 
@@ -483,6 +485,7 @@ export function Analytics() {
   const currentMonthDirty =
     isCurrentMonth &&
     currentMonthSnapshot(categories, unassigned) !== currentMonthSavedSnapshot;
+  useUnsavedChangesWarning(currentMonthDirty);
 
   if (loading) {
     return (
@@ -577,6 +580,13 @@ export function Analytics() {
             </div>
 
             <form onSubmit={handleSaveCurrentMonth}>
+              <ExpenseFormSaveBar
+                dirty={currentMonthDirty}
+                busy={busy || suggestBusy}
+                unsavedLabel={t('dashboard.unsavedFileChanges')}
+                savedLabel={t('dashboard.fileSaved')}
+                saveLabel={t('common.save')}
+              />
               <CategoryExpenseForm
                 categories={categories}
                 unassigned={unassigned}
@@ -601,20 +611,6 @@ export function Analytics() {
                 onUnassignedChange={setUnassigned}
                 onSuggestCategories={handleSuggestCategories}
               />
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <p className="text-xs text-gray-500">
-                  {currentMonthDirty
-                    ? t('dashboard.unsavedFileChanges')
-                    : t('dashboard.fileSaved')}
-                </p>
-                <button
-                  type="submit"
-                  disabled={busy || suggestBusy || !currentMonthDirty}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
-                >
-                  {t('common.save')}
-                </button>
-              </div>
             </form>
           </section>
         ) : selectedSummary && viewMode === 'detail' ? (
