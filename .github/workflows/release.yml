@@ -16,7 +16,7 @@ jobs:
     # Do not use [skip ci] here: GitHub skips *all* push workflows when that
     # string appears anywhere in the commit message (including merge bodies
     # that quote docs), which silently blocks production releases.
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release): update CHANGELOG') }}
+    if: "${{ !startsWith(github.event.head_commit.message, 'chore(release): update CHANGELOG') }}"
 
     steps:
       - name: Checkout code
