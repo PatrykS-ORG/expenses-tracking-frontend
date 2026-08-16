@@ -7,6 +7,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Sections are generated automatically by `.github/workflows/release.yml` on each push to `production`.
 
+## [0.0.15] - 2026-08-16
+
+### Other
+- [FE] Introduce new stat under /analytics route
+
 ## [0.0.14] - 2026-08-15
 
 ### Features
@@ -16,4 +21,3 @@ Sections are generated automatically by `.github/workflows/release.yml` on each 
 ### Other
 - fix release trigger prettier
 - fix release trigger
-
