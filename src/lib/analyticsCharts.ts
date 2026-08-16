@@ -19,6 +19,13 @@ export interface MomChartPoint {
   expenses: number | null;
 }
 
+export interface MonthlySavingsChartPoint {
+  period: string;
+  periodLabel: string;
+  /** Missing months are 0 (same rule as YTD aggregates). */
+  savings: number;
+}
+
 export interface CategoryDonutSlice {
   key: SummaryCategoryKey;
   value: number;
@@ -46,7 +53,168 @@ export const CATEGORY_CHART_COLORS: Record<SummaryCategoryKey, string> = {
 export const CHART_SERIES_COLORS = {
   income: '#059669',
   expenses: '#38bdf8',
+  savings: '#059669',
+  spent: '#38bdf8',
 } as const;
+
+export type YtdSavesVsSpentSliceKey = 'savings' | 'spent';
+
+export interface YtdSavesVsSpentSlice {
+  key: YtdSavesVsSpentSliceKey;
+  value: number;
+  percent: number;
+  color: string;
+}
+
+export interface YtdSavesVsSpentData {
+  savingsCents: number;
+  spentCents: number;
+  /** Clamped non-negative value used for the savings donut wedge. */
+  savingsSliceValue: number;
+  spentSliceValue: number;
+  slices: YtdSavesVsSpentSlice[];
+}
+
+export interface MostExpensiveExpense {
+  name: string;
+  amountCents: number;
+  period: string;
+  categoryKey: SummaryCategoryKey;
+}
+
+function resolveYtdRange(
+  summaries: SummaryAnalytics[],
+  options?: { fromPeriod?: string; throughPeriod?: string },
+): { start: string; end: string } {
+  const byPeriod = new Map(
+    summaries.map((summary) => [summary.period, summary] as const),
+  );
+  const sortedPeriods = [...byPeriod.keys()].sort(comparePeriods);
+  const fallbackStart = sortedPeriods[0] ?? EARLIEST_PERIOD;
+  const fallbackEnd = sortedPeriods[sortedPeriods.length - 1] ?? fallbackStart;
+
+  let start = options?.fromPeriod ?? fallbackStart;
+  let end = options?.throughPeriod ?? fallbackEnd;
+
+  if (comparePeriods(start, EARLIEST_PERIOD) < 0) {
+    start = EARLIEST_PERIOD;
+  }
+  if (comparePeriods(end, start) < 0) {
+    end = start;
+  }
+
+  return { start, end };
+}
+
+/**
+ * Cumulative saves vs spent from `fromPeriod` through `throughPeriod`.
+ * Months without a summary contribute 0 / 0. Negative cumulative savings
+ * clamp to 0 for the donut wedge only; `savingsCents` keeps the true total.
+ */
+export function buildYtdSavesVsSpent(
+  summaries: SummaryAnalytics[],
+  options?: { fromPeriod?: string; throughPeriod?: string },
+): YtdSavesVsSpentData {
+  const byPeriod = new Map(
+    summaries.map((summary) => [summary.period, summary] as const),
+  );
+  const { start, end } = resolveYtdRange(summaries, options);
+
+  let savingsCents = 0;
+  let spentCents = 0;
+  for (const period of listPeriodsInclusive(start, end)) {
+    const summary = byPeriod.get(period);
+    if (!summary) continue;
+    savingsCents += summary.savingsCents;
+    spentCents += summary.totalExpensesCents;
+  }
+
+  const savingsSliceValue = Math.max(0, savingsCents);
+  const spentSliceValue = Math.max(0, spentCents);
+  const sliceTotal = savingsSliceValue + spentSliceValue;
+
+  if (sliceTotal <= 0) {
+    return {
+      savingsCents,
+      spentCents,
+      savingsSliceValue,
+      spentSliceValue,
+      slices: [],
+    };
+  }
+
+  const slices: YtdSavesVsSpentSlice[] = (
+    [
+      {
+        key: 'savings' as const,
+        value: savingsSliceValue / 100,
+        color: CHART_SERIES_COLORS.savings,
+      },
+      {
+        key: 'spent' as const,
+        value: spentSliceValue / 100,
+        color: CHART_SERIES_COLORS.spent,
+      },
+    ] as const
+  )
+    .filter((slice) => slice.value > 0)
+    .map((slice) => ({
+      ...slice,
+      percent: (slice.value / (sliceTotal / 100)) * 100,
+    }));
+
+  return {
+    savingsCents,
+    spentCents,
+    savingsSliceValue,
+    spentSliceValue,
+    slices,
+  };
+}
+
+/**
+ * Max single line item by amountCents across summaries in range.
+ * Ties: earlier period wins, then canonical category order, then first item.
+ * Category totals without items are ignored.
+ */
+export function findMostExpensiveExpense(
+  summaries: SummaryAnalytics[],
+  options?: { fromPeriod?: string; throughPeriod?: string },
+): MostExpensiveExpense | null {
+  const { start, end } = resolveYtdRange(summaries, options);
+  const inRange = summaries
+    .filter(
+      (summary) =>
+        comparePeriods(summary.period, start) >= 0 &&
+        comparePeriods(summary.period, end) <= 0,
+    )
+    .sort((a, b) => comparePeriods(a.period, b.period));
+
+  let best: MostExpensiveExpense | null = null;
+
+  for (const summary of inRange) {
+    for (const categoryKey of CANONICAL_CATEGORY_KEYS) {
+      const category = summary.categories.find(
+        (entry) => entry.name === categoryKey,
+      );
+      if (!category) continue;
+
+      for (const item of category.items) {
+        if (!item.name.trim() || item.amountCents <= 0) continue;
+        if (!best || item.amountCents > best.amountCents) {
+          best = {
+            name: item.name.trim(),
+            amountCents: item.amountCents,
+            period: summary.period,
+            categoryKey,
+          };
+        }
+      }
+    }
+  }
+
+  return best;
+}
 
 function listPeriodsInclusive(
   fromPeriod: string,
@@ -99,6 +267,30 @@ export function buildMomChartData(
   });
 }
 
+/**
+ * Monthly savings columns from `fromPeriod` through `throughPeriod`.
+ * Months without a summary contribute 0 (aligned with YTD missing-month rule).
+ */
+export function buildMonthlySavingsChartData(
+  summaries: SummaryAnalytics[],
+  locale: string,
+  options?: { fromPeriod?: string; throughPeriod?: string },
+): MonthlySavingsChartPoint[] {
+  const byPeriod = new Map(
+    summaries.map((summary) => [summary.period, summary] as const),
+  );
+  const { start, end } = resolveYtdRange(summaries, options);
+
+  return listPeriodsInclusive(start, end).map((period) => {
+    const summary = byPeriod.get(period);
+    return {
+      period,
+      periodLabel: formatPeriodShortLabel(period, locale),
+      savings: summary ? summary.savingsCents / 100 : 0,
+    };
+  });
+}
+
 export function buildCategoryDonutData(summary: SummaryAnalytics): {
   slices: CategoryDonutSlice[];
   total: number;
@@ -141,7 +333,7 @@ export function formatCompactAmount(
 }
 
 export function formatMomRangeCaption(
-  points: MomChartPoint[],
+  points: Array<{ period: string }>,
   locale: string,
 ): string {
   if (points.length === 0) return '';
