@@ -7,6 +7,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Sections are generated automatically by `.github/workflows/release.yml` on each push to `production`.
 
+## [0.0.16] - 2026-08-17
+
+### Features
+- collapse expense categories by default on dashboard and analytics (#41)
+
 ## [0.0.15] - 2026-08-16
 
 ### Other
