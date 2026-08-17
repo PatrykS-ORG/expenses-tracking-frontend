@@ -294,6 +294,8 @@
     "savingsLabel": "Oszczędności",
     "narrativeLabel": "Opis podsumowania",
     "categoriesTitle": "Kategorie",
+    "collapseCategory": "Zwiń kategorię {{name}}",
+    "expandCategory": "Rozwiń kategorię {{name}}",
     "categoryTotalLabel": "Suma kategorii",
     "lineItemsLabel": "Pozycje",
     "salaryLabel": "Wypłata / przychód",

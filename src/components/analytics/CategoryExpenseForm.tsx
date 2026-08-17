@@ -1,6 +1,9 @@
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Sparkles, Trash2 } from 'lucide-react';
 import type { SummaryCategoryKey } from '../../types/analytics.types';
 import { CANONICAL_CATEGORY_KEYS } from '../../types/analytics.types';
+import { CollapsibleCategoryCard } from './CollapsibleCategoryCard';
 import {
   recomputeCategoryTotalFromItems,
   type CategoryFormState,
@@ -63,6 +66,19 @@ export function CategoryExpenseForm({
   onUnassignedChange,
   onSuggestCategories,
 }: CategoryExpenseFormProps) {
+  const { t } = useTranslation();
+  const [expandedKeys, setExpandedKeys] = useState<
+    Partial<Record<SummaryCategoryKey, boolean>>
+  >({});
+
+  const isExpanded = (key: SummaryCategoryKey) => expandedKeys[key] === true;
+  const toggleCategory = (key: SummaryCategoryKey) => {
+    setExpandedKeys((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
+  };
+
   const isAutoTotal = (
     key: SummaryCategoryKey,
     itemCount = categories[key].items.length,
@@ -352,15 +368,21 @@ export function CategoryExpenseForm({
         <h3 className="text-sm font-medium text-gray-900">{categoriesTitle}</h3>
         {CANONICAL_CATEGORY_KEYS.map((key) => {
           const autoTotal = isAutoTotal(key);
+          const expanded = isExpanded(key);
+          const name = categoryLabel(key);
           return (
-            <div
+            <CollapsibleCategoryCard
               key={key}
-              className="space-y-3 rounded-md border border-gray-200 p-4"
-            >
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="min-w-40 flex-1 text-sm font-medium text-gray-700">
-                  {categoryLabel(key)}
-                </div>
+              expanded={expanded}
+              onToggle={() => toggleCategory(key)}
+              title={name}
+              contentId={`category-panel-${key}`}
+              toggleAriaLabel={
+                expanded
+                  ? t('analytics.collapseCategory', { name })
+                  : t('analytics.expandCategory', { name })
+              }
+              trailing={
                 <label className="min-w-40 flex-1 text-sm">
                   {categoryTotalLabel}
                   <input
@@ -376,8 +398,8 @@ export function CategoryExpenseForm({
                     placeholder="0.00"
                   />
                 </label>
-              </div>
-
+              }
+            >
               {categories[key].items.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
@@ -471,7 +493,7 @@ export function CategoryExpenseForm({
                 <Plus className="h-4 w-4" />
                 {addLineItemLabel}
               </button>
-            </div>
+            </CollapsibleCategoryCard>
           );
         })}
       </div>

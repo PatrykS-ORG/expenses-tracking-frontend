@@ -294,6 +294,8 @@
     "savingsLabel": "Savings",
     "narrativeLabel": "Summary narrative",
     "categoriesTitle": "Categories",
+    "collapseCategory": "Collapse {{name}}",
+    "expandCategory": "Expand {{name}}",
     "categoryTotalLabel": "Category total",
     "lineItemsLabel": "Line items",
     "salaryLabel": "Salary / income",
