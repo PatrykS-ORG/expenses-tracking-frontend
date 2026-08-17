@@ -1,9 +1,12 @@
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pencil } from 'lucide-react';
 import type {
   SummaryAnalytics,
   SummaryCategoryKey,
 } from '../../types/analytics.types';
 import { formatCentsAsCurrency } from '../../lib/money';
+import { CollapsibleCategoryCard } from './CollapsibleCategoryCard';
 
 type SummaryDetailPanelProps = {
   summary: SummaryAnalytics;
@@ -38,8 +41,19 @@ export function SummaryDetailPanel({
   editLabel,
   onEdit,
 }: SummaryDetailPanelProps) {
+  const { t } = useTranslation();
+  const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
+
   const formatMoney = (cents: number) =>
     formatCentsAsCurrency(cents, summary.currency, locale);
+
+  const isExpanded = (key: string) => expandedKeys[key] === true;
+  const toggleCategory = (key: string) => {
+    setExpandedKeys((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
+  };
 
   return (
     <section className="space-y-6 rounded-lg border bg-white p-6 shadow-sm">
@@ -100,37 +114,47 @@ export function SummaryDetailPanel({
             {categoriesTitle}
           </h3>
           <div className="space-y-3">
-            {summary.categories.map((category) => (
-              <div
-                key={category.name}
-                className="rounded-md border border-gray-200 p-4"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-medium text-gray-900">
-                    {categoryLabel(category.name as SummaryCategoryKey)}
-                  </p>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {formatMoney(category.totalCents)}
-                  </p>
-                </div>
-                {category.items.length > 0 && (
-                  <ul className="mt-3 space-y-1 border-t pt-3 text-sm text-gray-600">
-                    <li className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                      {lineItemsLabel}
-                    </li>
-                    {category.items.map((item) => (
-                      <li
-                        key={`${category.name}-${item.name}`}
-                        className="flex justify-between gap-3"
-                      >
-                        <span>{item.name}</span>
-                        <span>{formatMoney(item.amountCents)}</span>
+            {summary.categories.map((category) => {
+              const name = categoryLabel(category.name as SummaryCategoryKey);
+              const expanded = isExpanded(category.name);
+              return (
+                <CollapsibleCategoryCard
+                  key={category.name}
+                  expanded={expanded}
+                  onToggle={() => toggleCategory(category.name)}
+                  title={name}
+                  contentId={`summary-category-panel-${category.name}`}
+                  toggleAriaLabel={
+                    expanded
+                      ? t('analytics.collapseCategory', { name })
+                      : t('analytics.expandCategory', { name })
+                  }
+                  trailingAlign="center"
+                  trailing={
+                    <p className="text-sm font-semibold text-gray-900">
+                      {formatMoney(category.totalCents)}
+                    </p>
+                  }
+                >
+                  {category.items.length > 0 && (
+                    <ul className="space-y-1 border-t pt-3 text-sm text-gray-600">
+                      <li className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                        {lineItemsLabel}
                       </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ))}
+                      {category.items.map((item) => (
+                        <li
+                          key={`${category.name}-${item.name}`}
+                          className="flex justify-between gap-3"
+                        >
+                          <span>{item.name}</span>
+                          <span>{formatMoney(item.amountCents)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </CollapsibleCategoryCard>
+              );
+            })}
           </div>
         </div>
       )}
