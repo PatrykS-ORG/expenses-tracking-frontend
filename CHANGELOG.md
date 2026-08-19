@@ -7,6 +7,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Sections are generated automatically by `.github/workflows/release.yml` on each push to `production`.
 
+## [0.0.17] - 2026-08-19
+
+### Other
+- [FE] Budget plan for a next month (#43)
+
 ## [0.0.16] - 2026-08-17
 
 ### Features
