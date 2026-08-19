@@ -347,6 +347,7 @@
   "budget": {
     "title": "Zaplanuj budżet",
     "subtitle": "Ustal miesięczną kwotę dla każdej kategorii. Plan zostaje do czasu nadpisania, a wykresy porównują go z wydatkami w tym miesiącu.",
+    "planningForNextMonth": "Planujesz budżet na następny miesiąc ({{month}}).",
     "unsaved": "Niezapisane zmiany budżetu",
     "saved": "Budżet zapisany",
     "loadError": "Nie udało się wczytać budżetu",

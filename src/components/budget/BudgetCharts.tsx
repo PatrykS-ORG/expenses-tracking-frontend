@@ -165,16 +165,16 @@ export function BudgetCharts({
 
       <ChartCard title={t('budget.vsActual')}>
         {loadingActual ? (
-          <div className="flex h-64 items-center justify-center">
+          <div className="flex h-96 items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600" />
           </div>
         ) : vsActualChart.length > 0 ? (
           <>
-            <div className="h-64 w-full">
+            <div className="h-96 w-full overflow-visible">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={vsActualChart}
-                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                  margin={{ top: 8, right: 16, left: 8, bottom: 12 }}
                   barCategoryGap="24%"
                   barGap={4}
                 >
@@ -185,13 +185,14 @@ export function BudgetCharts({
                   />
                   <XAxis
                     dataKey="label"
-                    tick={{ fontSize: 12, fill: '#9ca3af' }}
+                    tick={{ fontSize: 11, fill: '#9ca3af' }}
                     axisLine={false}
                     tickLine={false}
                     interval={0}
-                    angle={-25}
+                    angle={-40}
                     textAnchor="end"
-                    height={56}
+                    height="auto"
+                    tickMargin={10}
                   />
                   <YAxis
                     tick={{ fontSize: 12, fill: '#9ca3af' }}

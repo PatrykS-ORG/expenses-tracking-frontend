@@ -347,6 +347,7 @@
   "budget": {
     "title": "Plan your budget",
     "subtitle": "Set a monthly amount for each category. The plan stays until you overwrite it, and charts compare it with this month’s spending.",
+    "planningForNextMonth": "You are planning the budget for next month ({{month}}).",
     "unsaved": "Unsaved budget changes",
     "saved": "Budget saved",
     "loadError": "Failed to load budget",

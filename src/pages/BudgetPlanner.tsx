@@ -1,11 +1,17 @@
 import type { FormEvent } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { CalendarDays } from 'lucide-react';
 import { DashboardAlerts } from '../components/DashboardAlerts';
 import { ExpenseFormSaveBar } from '../components/analytics/ExpenseFormSaveBar';
 import { BudgetCategoryForm } from '../components/budget/BudgetCategoryForm';
 import { BudgetCharts } from '../components/budget/BudgetCharts';
 import { actualCentsFromCurrentMonth } from '../lib/budgetCharts';
+import {
+  currentMonthInTimezone,
+  formatPeriodLabel,
+  shiftPeriod,
+} from '../lib/period';
 import {
   getCurrentMonthExpenses,
   getSummarySchedule,
@@ -36,6 +42,7 @@ export function BudgetPlanner() {
   const locale = i18n.resolvedLanguage ?? 'pl';
 
   const [currency, setCurrency] = useState('PLN');
+  const [timezone, setTimezone] = useState('Europe/Warsaw');
   const [amounts, setAmounts] = useState<BudgetFormAmounts>(
     emptyBudgetFormAmounts(),
   );
@@ -57,6 +64,14 @@ export function BudgetPlanner() {
   );
 
   const planned = useMemo(() => formAmountsToCategories(amounts), [amounts]);
+  const nextMonthLabel = useMemo(
+    () =>
+      formatPeriodLabel(
+        shiftPeriod(currentMonthInTimezone(timezone), 1),
+        locale,
+      ),
+    [locale, timezone],
+  );
   const dirty = snapshotOf(amounts) !== savedSnapshot;
   useUnsavedChangesWarning(dirty);
 
@@ -77,6 +92,7 @@ export function BudgetPlanner() {
 
         const nextAmounts = budgetToFormAmounts(budget);
         setCurrency(budget?.currency ?? schedule.currency);
+        setTimezone(schedule.timezone);
         setAmounts(nextAmounts);
         setSavedSnapshot(snapshotOf(nextAmounts));
       } catch (loadError) {
@@ -171,6 +187,13 @@ export function BudgetPlanner() {
         {t('budget.title')}
       </h1>
       <p className="mt-1 text-sm text-gray-600">{t('budget.subtitle')}</p>
+      <p className="mt-3 flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+        <CalendarDays
+          className="mt-0.5 h-4 w-4 shrink-0 text-blue-600"
+          aria-hidden
+        />
+        {t('budget.planningForNextMonth', { month: nextMonthLabel })}
+      </p>
 
       <DashboardAlerts error={error} success={success} />
 
