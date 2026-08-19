@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   LogOut,
   Settings,
+  Wallet,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/useAuthStore';
@@ -45,6 +46,10 @@ export function AppLayout() {
             <NavLink to="/analytics" className={linkClass}>
               <ChartLine className="h-4 w-4" />
               {t('navigation.analytics')}
+            </NavLink>
+            <NavLink to="/budget" className={linkClass}>
+              <Wallet className="h-4 w-4" />
+              {t('navigation.budget')}
             </NavLink>
             <NavLink to="/settings" className={linkClass}>
               <Settings className="h-4 w-4" />

@@ -5,7 +5,7 @@ React 19 + Vite SPA for **Spendwell**.
 Implemented frontend scope:
 
 - Supabase authentication (`useAuthStore`)
-- Route guards (`/`, `/auth`, `/onboarding`, `/receipt-scan`, `/settings`)
+- Route guards (`/`, `/auth`, `/onboarding`, `/receipt-scan`, `/analytics`, `/budget`, `/settings`)
 - Onboarding questionnaire + AI template generation
 - Dashboard template selection/activation
 - Dashboard template preview: web/mobile toggle with touch-like drag-to-scroll simulation
@@ -13,6 +13,7 @@ Implemented frontend scope:
 - Expense file upload via backend GraphQL mutations
 - Receipt scanner page (`/receipt-scan`) with image OCR scan and expense approval
 - Settings page (`/settings`): account, summary schedule, AI usage credits/audit
+- Budget planner (`/budget`): reusable monthly category amounts + planned vs actual charts
 - Test-email trigger via GraphQL
 
 ## Prerequisites
@@ -49,11 +50,11 @@ A Husky pre-commit hook runs `lint-staged` (ESLint + Prettier) on staged files b
 src/
 ├── App.tsx
 ├── main.tsx
-├── components/              # Settings panels, shared UI
-├── pages/                   # Dashboard, Onboarding, ReceiptScanner, Settings
-├── services/                # onboarding.service.ts
+├── components/              # Settings panels, analytics, budget, shared UI
+├── pages/                   # Dashboard, Onboarding, ReceiptScanner, Analytics, BudgetPlanner, Settings
+├── services/                # GraphQL API layer
 ├── store/                   # useAuthStore, useOnboardingStore, useBlockingLoaderStore
-├── lib/                     # supabase singleton + preview helpers
+├── lib/                     # supabase singleton + chart/money helpers
 ├── locales/                 # en/pl translation.json
 ├── data/                    # predefined template catalog
 ├── types/                   # shared TS types
@@ -68,7 +69,7 @@ Run both `scripts/` files after editing `predefinedTemplates.pl.json` by hand �
 
 ## Key architecture notes
 
-- Backend communication is centralized in `services/onboarding.service.ts`.
+- Backend communication is centralized in `services/*.service.ts`.
 - Service layer mixes:
   - GraphQL operations for templates/settings/email/receipt approval/AI usage
   - GraphQL mutations with base64 file inputs for expense upload and receipt scan
