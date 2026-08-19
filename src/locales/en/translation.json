@@ -27,6 +27,7 @@
     "dashboard": "Dashboard",
     "receipts": "Receipts",
     "analytics": "Analytics",
+    "budget": "Plan your budget",
     "settings": "Settings"
   },
   "auth": {
@@ -342,5 +343,24 @@
       "Gifts": "Gifts",
       "Other": "Other"
     }
+  },
+  "budget": {
+    "title": "Plan your budget",
+    "subtitle": "Set a monthly amount for each category. The plan stays until you overwrite it, and charts compare it with this month’s spending.",
+    "unsaved": "Unsaved budget changes",
+    "saved": "Budget saved",
+    "loadError": "Failed to load budget",
+    "saveError": "Failed to save budget",
+    "saveSuccess": "Budget saved.",
+    "categoriesTitle": "Categories",
+    "amountLabel": "Planned amount",
+    "totalBudget": "Total budget",
+    "plannedAllocation": "Planned budget allocation",
+    "plannedEmpty": "Enter amounts for your categories to see the allocation.",
+    "vsActual": "Budget vs actual (current month)",
+    "vsActualEmpty": "No planned or actual amounts to compare yet.",
+    "planned": "Planned",
+    "actual": "Actual",
+    "overBudget": "Over budget"
   }
 }

@@ -5,9 +5,10 @@
 Spendwell frontend is a React SPA (Vite) that:
 
 - authenticates users with Supabase Auth,
-- calls backend GraphQL for templates, settings, AI usage, file upload, and receipt scanning,
+- calls backend GraphQL for templates, settings, AI usage, file upload, receipt scanning, and monthly budget,
 - guides users through onboarding → upload → dashboard workflow,
 - provides a receipt scanner page for OCR-based expense entry,
+- exposes a budget planner (`/budget`) for a reusable monthly category plan,
 - exposes Settings (`/settings`) for account, summary schedule, and AI usage.
 
 ```mermaid
@@ -43,6 +44,10 @@ Defined in `src/App.tsx`:
 | `/onboarding`   | no session     | redirect to `/auth` |
 | `/receipt-scan` | session exists | `ReceiptScanner`    |
 | `/receipt-scan` | no session     | redirect to `/auth` |
+| `/analytics`    | session exists | `Analytics`         |
+| `/analytics`    | no session     | redirect to `/auth` |
+| `/budget`       | session exists | `BudgetPlanner`     |
+| `/budget`       | no session     | redirect to `/auth` |
 | `/settings`     | session exists | `Settings`          |
 | `/settings`     | no session     | redirect to `/auth` |
 
@@ -65,7 +70,7 @@ Page-level local state is used in `Dashboard` for:
 
 ## Backend communication pattern
 
-`src/services/onboarding.service.ts` is the API gateway for dashboard/onboarding flows.
+`src/services/onboarding.service.ts` is the API gateway for dashboard/onboarding flows. `src/services/budget.service.ts` covers the reusable monthly category budget (`myMonthlyBudget` / `saveMonthlyBudget`).
 
 ### GraphQL operations
 
@@ -90,6 +95,7 @@ Page-level local state is used in `Dashboard` for:
 - `sendSummaryNow`
 - `myAiUsageSummary`
 - `myAiUsageLog`
+- `myMonthlyBudget` / `saveMonthlyBudget`
 
 ### URL strategy
 

@@ -9,6 +9,7 @@ import { useAuthStore } from './store/useAuthStore';
 import { Auth } from './components/Auth';
 import { BlockingLoaderHost } from './components/BlockingLoaderHost';
 import { Analytics } from './pages/Analytics';
+import { BudgetPlanner } from './pages/BudgetPlanner';
 import { Dashboard } from './pages/Dashboard';
 import { Onboarding } from './pages/Onboarding';
 import { ReceiptScanner } from './pages/ReceiptScanner';
@@ -78,6 +79,7 @@ const router = createBrowserRouter([
           { path: '/onboarding', element: <Onboarding /> },
           { path: '/receipt-scan', element: <ReceiptScanner /> },
           { path: '/analytics', element: <Analytics /> },
+          { path: '/budget', element: <BudgetPlanner /> },
           { path: '/settings', element: <Settings /> },
         ],
       },

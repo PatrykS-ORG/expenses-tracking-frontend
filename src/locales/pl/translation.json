@@ -27,6 +27,7 @@
     "dashboard": "Panel",
     "receipts": "Paragony",
     "analytics": "Analityka",
+    "budget": "Zaplanuj budżet",
     "settings": "Ustawienia"
   },
   "auth": {
@@ -342,5 +343,24 @@
       "Gifts": "Prezenty",
       "Other": "Inne"
     }
+  },
+  "budget": {
+    "title": "Zaplanuj budżet",
+    "subtitle": "Ustal miesięczną kwotę dla każdej kategorii. Plan zostaje do czasu nadpisania, a wykresy porównują go z wydatkami w tym miesiącu.",
+    "unsaved": "Niezapisane zmiany budżetu",
+    "saved": "Budżet zapisany",
+    "loadError": "Nie udało się wczytać budżetu",
+    "saveError": "Nie udało się zapisać budżetu",
+    "saveSuccess": "Budżet zapisany.",
+    "categoriesTitle": "Kategorie",
+    "amountLabel": "Planowana kwota",
+    "totalBudget": "Suma budżetu",
+    "plannedAllocation": "Planowany podział budżetu",
+    "plannedEmpty": "Podaj kwoty przy kategoriach, aby zobaczyć podział.",
+    "vsActual": "Budżet a wydatki (bieżący miesiąc)",
+    "vsActualEmpty": "Brak planu lub wydatków do porównania.",
+    "planned": "Plan",
+    "actual": "Wydatki",
+    "overBudget": "Ponad budżet"
   }
 }
