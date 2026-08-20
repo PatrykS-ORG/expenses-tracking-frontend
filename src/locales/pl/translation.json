@@ -362,6 +362,21 @@
     "vsActualEmpty": "Brak planu lub wydatków do porównania.",
     "planned": "Plan",
     "actual": "Wydatki",
-    "overBudget": "Ponad budżet"
+    "overBudget": "Ponad budżet",
+    "extraExpense": {
+      "addButton": "Dodaj dodatkowy wydatek",
+      "nameLabel": "Nazwa wydatku",
+      "namePlaceholder": "np. Naprawa samochodu",
+      "amountLabel": "Docelowa kwota",
+      "cutLabel": "Redukcja na dodatkowy wydatek",
+      "cutPlaceholder": "10",
+      "cutSaved": "Zaoszczędzono",
+      "progressLabel": "{{saved}} / {{target}} pokryte",
+      "deficit": "Potrzebujesz jeszcze {{amount}}",
+      "fullyCovered": "W pełni pokryte",
+      "exceeded": "Przekroczono cel o {{amount}}",
+      "removeButton": "Usuń dodatkowy wydatek",
+      "chartSlice": "Dodatkowy wydatek"
+    }
   }
 }

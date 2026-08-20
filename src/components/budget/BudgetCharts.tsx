@@ -18,15 +18,21 @@ import {
 } from '../../lib/analyticsCharts';
 import {
   BUDGET_VS_ACTUAL_COLORS,
+  EXTRA_EXPENSE_SLICE_KEY,
   buildBudgetDonutData,
   buildBudgetVsActualData,
+  type BudgetDonutSliceKey,
 } from '../../lib/budgetCharts';
 import type { SummaryCategoryKey } from '../../types/analytics.types';
-import type { BudgetCategory } from '../../types/budget.types';
+import type {
+  BudgetCategory,
+  ExtraExpenseCutSummary,
+} from '../../types/budget.types';
 
 type BudgetChartsProps = {
   planned: readonly BudgetCategory[];
   actualCents: Partial<Record<SummaryCategoryKey, number>>;
+  cutSummary?: ExtraExpenseCutSummary | null;
   loadingActual?: boolean;
   locale: string;
   currency: string;
@@ -71,18 +77,23 @@ function ChartCard({
 export function BudgetCharts({
   planned,
   actualCents,
+  cutSummary,
   loadingActual = false,
   locale,
   currency,
   t,
   categoryLabel,
 }: BudgetChartsProps) {
-  const donut = buildBudgetDonutData(planned);
-  const vsActual = buildBudgetVsActualData(planned, actualCents);
+  const donut = buildBudgetDonutData(planned, cutSummary);
+  const vsActual = buildBudgetVsActualData(planned, actualCents, cutSummary);
   const vsActualChart = vsActual.map((point) => ({
     ...point,
     label: categoryLabel(point.key),
   }));
+  const sliceLabel = (key: BudgetDonutSliceKey) =>
+    key === EXTRA_EXPENSE_SLICE_KEY
+      ? t('budget.extraExpense.chartSlice')
+      : categoryLabel(key);
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -110,11 +121,11 @@ export function BudgetCharts({
                   <Tooltip
                     formatter={(value, _name, item) => {
                       const key = (
-                        item?.payload as { key?: SummaryCategoryKey }
+                        item?.payload as { key?: BudgetDonutSliceKey }
                       )?.key;
                       return [
                         formatTooltipValue(value as number, currency, locale),
-                        key ? categoryLabel(key) : '',
+                        key ? sliceLabel(key) : '',
                       ];
                     }}
                   />
@@ -146,7 +157,7 @@ export function BudgetCharts({
                       aria-hidden
                     />
                     <span>
-                      {categoryLabel(slice.key)}{' '}
+                      {sliceLabel(slice.key)}{' '}
                       <span className="tabular-nums text-gray-400">
                         ({percentLabel}%)
                       </span>

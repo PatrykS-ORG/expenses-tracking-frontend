@@ -362,6 +362,21 @@
     "vsActualEmpty": "No planned or actual amounts to compare yet.",
     "planned": "Planned",
     "actual": "Actual",
-    "overBudget": "Over budget"
+    "overBudget": "Over budget",
+    "extraExpense": {
+      "addButton": "Add extra expense",
+      "nameLabel": "Expense name",
+      "namePlaceholder": "e.g. Car repair",
+      "amountLabel": "Target amount",
+      "cutLabel": "Cut for extra expense",
+      "cutPlaceholder": "10",
+      "cutSaved": "Saved",
+      "progressLabel": "{{saved}} / {{target}} covered",
+      "deficit": "You still need {{amount}}",
+      "fullyCovered": "Fully covered",
+      "exceeded": "Exceeded the target by {{amount}}",
+      "removeButton": "Remove extra expense",
+      "chartSlice": "Extra expense"
+    }
   }
 }
