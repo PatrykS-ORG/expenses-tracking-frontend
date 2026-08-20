@@ -22,6 +22,14 @@ const BUDGET_FIELDS = `
     key
     amountCents
   }
+  extraExpense {
+    name
+    amountCents
+    cuts {
+      key
+      cutPercent
+    }
+  }
   updatedAt
 `;
 

@@ -6,6 +6,7 @@ import { DashboardAlerts } from '../components/DashboardAlerts';
 import { ExpenseFormSaveBar } from '../components/analytics/ExpenseFormSaveBar';
 import { BudgetCategoryForm } from '../components/budget/BudgetCategoryForm';
 import { BudgetCharts } from '../components/budget/BudgetCharts';
+import { ExtraExpenseSection } from '../components/budget/ExtraExpenseSection';
 import { actualCentsFromCurrentMonth } from '../lib/budgetCharts';
 import {
   currentMonthInTimezone,
@@ -22,17 +23,25 @@ import {
 } from '../services/budget.service';
 import type { SummaryCategoryKey } from '../types/analytics.types';
 import {
+  budgetToExtraExpenseForm,
   budgetToFormAmounts,
+  computeCutSummary,
   emptyBudgetFormAmounts,
+  emptyExtraExpenseForm,
+  extraExpenseFormToInput,
   formAmountsToCategories,
   type BudgetFormAmounts,
+  type ExtraExpenseForm,
 } from '../types/budget.types';
 import { useAuthStore } from '../store/useAuthStore';
 import { runWithBlockingLoader } from '../store/useBlockingLoaderStore';
 import { useUnsavedChangesWarning } from '../store/useUnsavedChangesStore';
 
-function snapshotOf(amounts: BudgetFormAmounts): string {
-  return JSON.stringify(amounts);
+function snapshotOf(
+  amounts: BudgetFormAmounts,
+  extraExpense: ExtraExpenseForm,
+): string {
+  return JSON.stringify({ amounts, extraExpense });
 }
 
 export function BudgetPlanner() {
@@ -46,8 +55,11 @@ export function BudgetPlanner() {
   const [amounts, setAmounts] = useState<BudgetFormAmounts>(
     emptyBudgetFormAmounts(),
   );
+  const [extraExpense, setExtraExpense] = useState<ExtraExpenseForm>(
+    emptyExtraExpenseForm(),
+  );
   const [savedSnapshot, setSavedSnapshot] = useState(
-    snapshotOf(emptyBudgetFormAmounts()),
+    snapshotOf(emptyBudgetFormAmounts(), emptyExtraExpenseForm()),
   );
   const [actualCents, setActualCents] = useState<
     Partial<Record<SummaryCategoryKey, number>>
@@ -64,6 +76,10 @@ export function BudgetPlanner() {
   );
 
   const planned = useMemo(() => formAmountsToCategories(amounts), [amounts]);
+  const cutSummary = useMemo(
+    () => computeCutSummary(amounts, extraExpense),
+    [amounts, extraExpense],
+  );
   const nextMonthLabel = useMemo(
     () =>
       formatPeriodLabel(
@@ -72,7 +88,7 @@ export function BudgetPlanner() {
       ),
     [locale, timezone],
   );
-  const dirty = snapshotOf(amounts) !== savedSnapshot;
+  const dirty = snapshotOf(amounts, extraExpense) !== savedSnapshot;
   useUnsavedChangesWarning(dirty);
 
   useEffect(() => {
@@ -91,10 +107,12 @@ export function BudgetPlanner() {
         if (controller.signal.aborted) return;
 
         const nextAmounts = budgetToFormAmounts(budget);
+        const nextExtraExpense = budgetToExtraExpenseForm(budget);
         setCurrency(budget?.currency ?? schedule.currency);
         setTimezone(schedule.timezone);
         setAmounts(nextAmounts);
-        setSavedSnapshot(snapshotOf(nextAmounts));
+        setExtraExpense(nextExtraExpense);
+        setSavedSnapshot(snapshotOf(nextAmounts, nextExtraExpense));
       } catch (loadError) {
         if (controller.signal.aborted) return;
         setError(
@@ -153,11 +171,14 @@ export function BudgetPlanner() {
         const saved = await saveMonthlyBudget(token, {
           currency,
           categories: formAmountsToCategories(amounts),
+          extraExpense: extraExpenseFormToInput(extraExpense),
         });
         const nextAmounts = budgetToFormAmounts(saved);
+        const nextExtraExpense = budgetToExtraExpenseForm(saved);
         setCurrency(saved.currency);
         setAmounts(nextAmounts);
-        setSavedSnapshot(snapshotOf(nextAmounts));
+        setExtraExpense(nextExtraExpense);
+        setSavedSnapshot(snapshotOf(nextAmounts, nextExtraExpense));
         setSuccess(t('budget.saveSuccess'));
       } catch (saveError) {
         setError(
@@ -206,6 +227,14 @@ export function BudgetPlanner() {
           saveLabel={t('common.save')}
         />
         <div className="space-y-6">
+          <ExtraExpenseSection
+            form={extraExpense}
+            summary={cutSummary}
+            busy={busy}
+            locale={locale}
+            currency={currency}
+            onChange={setExtraExpense}
+          />
           <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
             <BudgetCategoryForm
               amounts={amounts}
@@ -214,12 +243,20 @@ export function BudgetPlanner() {
               amountLabel={t('budget.amountLabel')}
               totalLabel={t('budget.totalBudget')}
               categoryLabel={categoryLabel}
+              extraExpense={extraExpense}
+              cutSummary={cutSummary}
+              cutLabel={t('budget.extraExpense.cutLabel')}
+              cutPlaceholder={t('budget.extraExpense.cutPlaceholder')}
+              locale={locale}
+              currency={currency}
               onChange={setAmounts}
+              onExtraExpenseChange={setExtraExpense}
             />
           </section>
           <BudgetCharts
             planned={planned}
             actualCents={actualCents}
+            cutSummary={extraExpense.enabled ? cutSummary : undefined}
             loadingActual={loadingActual}
             locale={locale}
             currency={currency}
