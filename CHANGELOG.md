@@ -7,6 +7,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Sections are generated automatically by `.github/workflows/release.yml` on each push to `production`.
 
+## [0.0.18] - 2026-08-20
+
+### Features
+- add extra-expense cuts to the monthly budget planner (#45)
+
 ## [0.0.17] - 2026-08-19
 
 ### Other
