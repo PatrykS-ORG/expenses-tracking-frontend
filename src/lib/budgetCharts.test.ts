@@ -24,6 +24,46 @@ describe('buildBudgetDonutData', () => {
       expect.objectContaining({ key: 'Transport', value: 250, percent: 25 }),
     ]);
   });
+
+  it('uses post-cut amounts and adds an extra-expense slice', () => {
+    const result = buildBudgetDonutData(
+      [
+        { key: 'Groceries', amountCents: 120_000 },
+        { key: 'DiningOut', amountCents: 30_000 },
+      ],
+      {
+        savedByCategory: {
+          Bills: 0,
+          Groceries: 12_000,
+          DiningOut: 3_000,
+          Transport: 0,
+          Education: 0,
+          Entertainment: 0,
+          Investments: 0,
+          Car: 0,
+          Clothing: 0,
+          Snacks: 0,
+          Health: 0,
+          Travel: 0,
+          Gifts: 0,
+          Other: 0,
+        },
+        totalSavedCents: 15_000,
+        targetCents: 200_000,
+      },
+    );
+
+    expect(result.total).toBe(1500);
+    expect(result.slices).toEqual([
+      expect.objectContaining({ key: 'Groceries', value: 1080, percent: 72 }),
+      expect.objectContaining({ key: 'DiningOut', value: 270, percent: 18 }),
+      expect.objectContaining({
+        key: 'ExtraExpense',
+        value: 150,
+        percent: 10,
+      }),
+    ]);
+  });
 });
 
 describe('buildBudgetVsActualData', () => {
@@ -44,6 +84,42 @@ describe('buildBudgetVsActualData', () => {
         key: 'Snacks',
         planned: 0,
         actual: 5,
+        overBudget: true,
+      },
+    ]);
+  });
+
+  it('compares actuals against post-cut planned amounts', () => {
+    const points = buildBudgetVsActualData(
+      [{ key: 'Groceries', amountCents: 12_000 }],
+      { Groceries: 11_000 },
+      {
+        savedByCategory: {
+          Bills: 0,
+          Groceries: 2_000,
+          DiningOut: 0,
+          Transport: 0,
+          Education: 0,
+          Entertainment: 0,
+          Investments: 0,
+          Car: 0,
+          Clothing: 0,
+          Snacks: 0,
+          Health: 0,
+          Travel: 0,
+          Gifts: 0,
+          Other: 0,
+        },
+        totalSavedCents: 2_000,
+        targetCents: 2_000,
+      },
+    );
+
+    expect(points).toEqual([
+      {
+        key: 'Groceries',
+        planned: 100,
+        actual: 110,
         overBudget: true,
       },
     ]);

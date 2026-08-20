@@ -1,14 +1,30 @@
 import type { SummaryCategoryKey } from '../types/analytics.types';
 import { CANONICAL_CATEGORY_KEYS } from '../types/analytics.types';
-import type { CategoryDonutSlice } from './analyticsCharts';
 import { CATEGORY_CHART_COLORS } from './analyticsCharts';
-import type { BudgetCategory } from '../types/budget.types';
+import type {
+  BudgetCategory,
+  ExtraExpenseCutSummary,
+} from '../types/budget.types';
 import { amountStringToCents } from './money';
 
 export const BUDGET_VS_ACTUAL_COLORS = {
   planned: '#cbd5e1',
   overBudget: '#f87171',
 } as const;
+
+export const EXTRA_EXPENSE_SLICE_KEY = 'ExtraExpense' as const;
+export const EXTRA_EXPENSE_SLICE_COLOR = '#8b5cf6';
+
+export type BudgetDonutSliceKey =
+  | SummaryCategoryKey
+  | typeof EXTRA_EXPENSE_SLICE_KEY;
+
+export interface BudgetDonutSlice {
+  key: BudgetDonutSliceKey;
+  value: number;
+  percent: number;
+  color: string;
+}
 
 export interface BudgetVsActualPoint {
   key: SummaryCategoryKey;
@@ -25,16 +41,40 @@ function amountMap(
   );
 }
 
-export function buildBudgetDonutData(categories: readonly BudgetCategory[]): {
-  slices: CategoryDonutSlice[];
+function adjustedPlannedCents(
+  plannedCents: number,
+  savedCents: number | undefined,
+): number {
+  return Math.max(0, plannedCents - (savedCents ?? 0));
+}
+
+export function buildBudgetDonutData(
+  categories: readonly BudgetCategory[],
+  cutSummary?: ExtraExpenseCutSummary | null,
+): {
+  slices: BudgetDonutSlice[];
   total: number;
 } {
   const byKey = amountMap(categories);
-  const amounts = CANONICAL_CATEGORY_KEYS.map((key) => ({
-    key,
-    value: (byKey.get(key) ?? 0) / 100,
-    color: CATEGORY_CHART_COLORS[key],
-  })).filter((slice) => slice.value > 0);
+  const amounts: Array<Omit<BudgetDonutSlice, 'percent'>> =
+    CANONICAL_CATEGORY_KEYS.map((key) => ({
+      key,
+      value:
+        adjustedPlannedCents(
+          byKey.get(key) ?? 0,
+          cutSummary?.savedByCategory[key],
+        ) / 100,
+      color: CATEGORY_CHART_COLORS[key],
+    })).filter((slice) => slice.value > 0);
+
+  const extraSaved = (cutSummary?.totalSavedCents ?? 0) / 100;
+  if (extraSaved > 0) {
+    amounts.push({
+      key: EXTRA_EXPENSE_SLICE_KEY,
+      value: extraSaved,
+      color: EXTRA_EXPENSE_SLICE_COLOR,
+    });
+  }
 
   const total = amounts.reduce((sum, slice) => sum + slice.value, 0);
   if (total <= 0) {
@@ -54,11 +94,16 @@ export function buildBudgetDonutData(categories: readonly BudgetCategory[]): {
 export function buildBudgetVsActualData(
   planned: readonly BudgetCategory[],
   actualCents: Partial<Record<SummaryCategoryKey, number>>,
+  cutSummary?: ExtraExpenseCutSummary | null,
 ): BudgetVsActualPoint[] {
   const plannedByKey = amountMap(planned);
 
   return CANONICAL_CATEGORY_KEYS.flatMap((key) => {
-    const plannedValue = (plannedByKey.get(key) ?? 0) / 100;
+    const plannedValue =
+      adjustedPlannedCents(
+        plannedByKey.get(key) ?? 0,
+        cutSummary?.savedByCategory[key],
+      ) / 100;
     const actualValue = (actualCents[key] ?? 0) / 100;
     if (plannedValue <= 0 && actualValue <= 0) {
       return [];
