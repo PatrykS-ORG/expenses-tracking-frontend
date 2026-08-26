@@ -7,6 +7,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Sections are generated automatically by `.github/workflows/release.yml` on each push to `production`.
 
+## [0.0.19] - 2026-08-26
+
+### Features
+- show investing as a third bucket on analytics charts (#47)
+
 ## [0.0.18] - 2026-08-20
 
 ### Features
