@@ -33,6 +33,25 @@ export const CANONICAL_CATEGORY_KEYS: readonly SummaryCategoryKey[] = [
   'Other',
 ] as const;
 
+/** Canonical keys whose outflow is treated as investing/saving, not consumption. */
+export const SAVINGS_LIKE_CATEGORY_KEYS: readonly SummaryCategoryKey[] = [
+  'Investments',
+];
+
+export function isSavingsLikeCategory(value: string): boolean {
+  return (SAVINGS_LIKE_CATEGORY_KEYS as readonly string[]).includes(value);
+}
+
+export function sumInvestedCents(
+  categories: Array<{ name: string; totalCents: number }>,
+): number {
+  return categories.reduce(
+    (sum, category) =>
+      isSavingsLikeCategory(category.name) ? sum + category.totalCents : sum,
+    0,
+  );
+}
+
 export interface SummaryCategoryItem {
   name: string;
   amountCents: number;
@@ -51,6 +70,8 @@ export interface SummaryAnalytics {
   currency: string;
   salaryCents: number;
   totalExpensesCents: number;
+  investedCents: number;
+  consumptionSpentCents: number;
   savingsCents: number;
   savingsMessage: string | null;
   categories: SummaryCategory[];

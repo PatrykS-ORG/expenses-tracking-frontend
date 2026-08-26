@@ -5,6 +5,8 @@ export const TEMPLATE_PLACEHOLDER_KEYS = [
   'currentMonth',
   'salaryAmount',
   'totalExpenses',
+  'spendingAmount',
+  'investedAmount',
   'savingsAmount',
   'savingsMessage',
   'expensesList',
@@ -28,6 +30,8 @@ const EXAMPLE_TOTAL_EXPENSES_PLN = EXAMPLE_CATEGORIES_PLN.reduce(
   (sum, category) => sum + category.total,
   0,
 );
+const EXAMPLE_INVESTED_PLN = 800;
+const EXAMPLE_SPENDING_PLN = EXAMPLE_TOTAL_EXPENSES_PLN - EXAMPLE_INVESTED_PLN;
 const EXAMPLE_REMAINING_PLN = EXAMPLE_SALARY_PLN - EXAMPLE_TOTAL_EXPENSES_PLN;
 
 function resolveLocale(locale?: string): 'en' | 'pl' {
@@ -184,6 +188,8 @@ export function getExampleTemplateValues(
     currentMonth,
     salaryAmount: salaryFormatted,
     totalExpenses: totalExpensesFormatted,
+    spendingAmount: formatAmount(EXAMPLE_SPENDING_PLN),
+    investedAmount: formatAmount(EXAMPLE_INVESTED_PLN),
     savingsAmount: remainingFormatted,
     savingsMessage,
     expensesList: buildExpensesListHtml(
