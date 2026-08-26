@@ -10,13 +10,17 @@ import type {
   SummaryAnalytics,
   SummaryCategoryKey,
 } from '../types/analytics.types';
-import { CANONICAL_CATEGORY_KEYS } from '../types/analytics.types';
+import {
+  CANONICAL_CATEGORY_KEYS,
+  sumInvestedCents,
+} from '../types/analytics.types';
 
 export interface MomChartPoint {
   period: string;
   periodLabel: string;
   income: number | null;
   expenses: number | null;
+  invested: number | null;
 }
 
 export interface MonthlySavingsChartPoint {
@@ -24,6 +28,7 @@ export interface MonthlySavingsChartPoint {
   periodLabel: string;
   /** Missing months are 0 (same rule as YTD aggregates). */
   savings: number;
+  invested: number;
 }
 
 export interface CategoryDonutSlice {
@@ -40,7 +45,7 @@ export const CATEGORY_CHART_COLORS: Record<SummaryCategoryKey, string> = {
   Transport: '#eab308',
   Education: '#8b5cf6',
   Entertainment: '#a855f7',
-  Investments: '#10b981',
+  Investments: '#d97706',
   Car: '#f97316',
   Clothing: '#db2777',
   Snacks: '#f59e0b',
@@ -55,9 +60,10 @@ export const CHART_SERIES_COLORS = {
   expenses: '#38bdf8',
   savings: '#059669',
   spent: '#38bdf8',
+  invested: '#d97706',
 } as const;
 
-export type YtdSavesVsSpentSliceKey = 'savings' | 'spent';
+export type YtdSavesVsSpentSliceKey = 'savings' | 'invested' | 'spent';
 
 export interface YtdSavesVsSpentSlice {
   key: YtdSavesVsSpentSliceKey;
@@ -68,9 +74,11 @@ export interface YtdSavesVsSpentSlice {
 
 export interface YtdSavesVsSpentData {
   savingsCents: number;
+  investedCents: number;
   spentCents: number;
   /** Clamped non-negative value used for the savings donut wedge. */
   savingsSliceValue: number;
+  investedSliceValue: number;
   spentSliceValue: number;
   slices: YtdSavesVsSpentSlice[];
 }
@@ -107,9 +115,10 @@ function resolveYtdRange(
 }
 
 /**
- * Cumulative saves vs spent from `fromPeriod` through `throughPeriod`.
- * Months without a summary contribute 0 / 0. Negative cumulative savings
- * clamp to 0 for the donut wedge only; `savingsCents` keeps the true total.
+ * Cumulative free savings vs invested vs consumption spend from
+ * `fromPeriod` through `throughPeriod`. Months without a summary contribute
+ * 0 / 0 / 0. Negative cumulative free savings clamp to 0 for the donut wedge
+ * only; `savingsCents` keeps the true total.
  */
 export function buildYtdSavesVsSpent(
   summaries: SummaryAnalytics[],
@@ -121,23 +130,28 @@ export function buildYtdSavesVsSpent(
   const { start, end } = resolveYtdRange(summaries, options);
 
   let savingsCents = 0;
+  let investedCents = 0;
   let spentCents = 0;
   for (const period of listPeriodsInclusive(start, end)) {
     const summary = byPeriod.get(period);
     if (!summary) continue;
     savingsCents += summary.savingsCents;
-    spentCents += summary.totalExpensesCents;
+    investedCents += summary.investedCents;
+    spentCents += summary.consumptionSpentCents;
   }
 
   const savingsSliceValue = Math.max(0, savingsCents);
+  const investedSliceValue = Math.max(0, investedCents);
   const spentSliceValue = Math.max(0, spentCents);
-  const sliceTotal = savingsSliceValue + spentSliceValue;
+  const sliceTotal = savingsSliceValue + investedSliceValue + spentSliceValue;
 
   if (sliceTotal <= 0) {
     return {
       savingsCents,
+      investedCents,
       spentCents,
       savingsSliceValue,
+      investedSliceValue,
       spentSliceValue,
       slices: [],
     };
@@ -149,6 +163,11 @@ export function buildYtdSavesVsSpent(
         key: 'savings' as const,
         value: savingsSliceValue / 100,
         color: CHART_SERIES_COLORS.savings,
+      },
+      {
+        key: 'invested' as const,
+        value: investedSliceValue / 100,
+        color: CHART_SERIES_COLORS.invested,
       },
       {
         key: 'spent' as const,
@@ -165,8 +184,10 @@ export function buildYtdSavesVsSpent(
 
   return {
     savingsCents,
+    investedCents,
     spentCents,
     savingsSliceValue,
+    investedSliceValue,
     spentSliceValue,
     slices,
   };
@@ -262,7 +283,8 @@ export function buildMomChartData(
       period,
       periodLabel: formatPeriodShortLabel(period, locale),
       income: summary ? summary.salaryCents / 100 : null,
-      expenses: summary ? summary.totalExpensesCents / 100 : null,
+      expenses: summary ? summary.consumptionSpentCents / 100 : null,
+      invested: summary ? summary.investedCents / 100 : null,
     };
   });
 }
@@ -287,6 +309,7 @@ export function buildMonthlySavingsChartData(
       period,
       periodLabel: formatPeriodShortLabel(period, locale),
       savings: summary ? summary.savingsCents / 100 : 0,
+      invested: summary ? summary.investedCents / 100 : 0,
     };
   });
 }
@@ -406,6 +429,7 @@ export function buildLiveSummaryFromCategories(params: {
     (sum, category) => sum + category.totalCents,
     0,
   );
+  const investedCents = sumInvestedCents(categories);
 
   return {
     id: `live-${params.period}`,
@@ -414,6 +438,8 @@ export function buildLiveSummaryFromCategories(params: {
     currency: params.currency,
     salaryCents: params.salaryCents,
     totalExpensesCents,
+    investedCents,
+    consumptionSpentCents: totalExpensesCents - investedCents,
     savingsCents: params.salaryCents - totalExpensesCents,
     savingsMessage: null,
     categories,
