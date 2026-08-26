@@ -24,6 +24,8 @@ const SUMMARY_FIELDS = `
   currency
   salaryCents
   totalExpensesCents
+  investedCents
+  consumptionSpentCents
   savingsCents
   savingsMessage
   categories {

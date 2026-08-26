@@ -562,20 +562,31 @@ export function Analytics() {
                 </p>
               )}
               {liveSummary && (
-                <p className="mt-1 text-sm text-gray-700">
-                  {t('analytics.expensesLabel')}:{' '}
-                  {centsToAmountString(liveSummary.totalExpensesCents)}{' '}
-                  {currency}
-                  {unassigned.some(
-                    (item) =>
-                      item.name.trim() && amountStringToCents(item.amount) > 0,
-                  ) && (
-                    <span className="text-amber-700">
-                      {' '}
-                      ({t('analytics.includesUnassigned')})
-                    </span>
-                  )}
-                </p>
+                <div className="mt-1 space-y-1 text-sm text-gray-700">
+                  <p>
+                    {t('analytics.expensesLabel')}:{' '}
+                    {centsToAmountString(liveSummary.consumptionSpentCents)}{' '}
+                    {currency}
+                    {unassigned.some(
+                      (item) =>
+                        item.name.trim() &&
+                        amountStringToCents(item.amount) > 0,
+                    ) && (
+                      <span className="text-amber-700">
+                        {' '}
+                        ({t('analytics.includesUnassigned')})
+                      </span>
+                    )}
+                  </p>
+                  <p>
+                    {t('analytics.investedLabel')}:{' '}
+                    {centsToAmountString(liveSummary.investedCents)} {currency}
+                  </p>
+                  <p>
+                    {t('analytics.savingsLabel')}:{' '}
+                    {centsToAmountString(liveSummary.savingsCents)} {currency}
+                  </p>
+                </div>
               )}
             </div>
 
@@ -622,6 +633,7 @@ export function Analytics() {
             sourceScheduledLabel={t('analytics.sourceScheduled')}
             incomeLabel={t('analytics.incomeLabel')}
             expensesLabel={t('analytics.expensesLabel')}
+            investedLabel={t('analytics.investedLabel')}
             savingsLabel={t('analytics.savingsLabel')}
             narrativeLabel={t('analytics.narrativeLabel')}
             categoriesTitle={t('analytics.categoriesTitle')}

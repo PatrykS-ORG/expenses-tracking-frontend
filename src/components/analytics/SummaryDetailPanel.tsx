@@ -16,6 +16,7 @@ type SummaryDetailPanelProps = {
   sourceScheduledLabel: string;
   incomeLabel: string;
   expensesLabel: string;
+  investedLabel: string;
   savingsLabel: string;
   narrativeLabel: string;
   categoriesTitle: string;
@@ -33,6 +34,7 @@ export function SummaryDetailPanel({
   sourceScheduledLabel,
   incomeLabel,
   expensesLabel,
+  investedLabel,
   savingsLabel,
   narrativeLabel,
   categoriesTitle,
@@ -76,7 +78,7 @@ export function SummaryDetailPanel({
         </button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-md border border-emerald-100 bg-emerald-50/60 p-4">
           <p className="text-sm text-gray-600">{incomeLabel}</p>
           <p className="mt-1 text-xl font-semibold text-gray-900">
@@ -86,7 +88,13 @@ export function SummaryDetailPanel({
         <div className="rounded-md border border-red-100 bg-red-50/60 p-4">
           <p className="text-sm text-gray-600">{expensesLabel}</p>
           <p className="mt-1 text-xl font-semibold text-gray-900">
-            {formatMoney(summary.totalExpensesCents)}
+            {formatMoney(summary.consumptionSpentCents)}
+          </p>
+        </div>
+        <div className="rounded-md border border-amber-100 bg-amber-50/60 p-4">
+          <p className="text-sm text-gray-600">{investedLabel}</p>
+          <p className="mt-1 text-xl font-semibold text-gray-900">
+            {formatMoney(summary.investedCents)}
           </p>
         </div>
         <div className="rounded-md border border-blue-100 bg-blue-50/60 p-4">

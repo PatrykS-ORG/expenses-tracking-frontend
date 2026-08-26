@@ -22,6 +22,7 @@ import {
   findMostExpensiveExpense,
   formatCompactAmount,
   formatMomRangeCaption,
+  type YtdSavesVsSpentSliceKey,
 } from '../../lib/analyticsCharts';
 import { formatCentsAsCurrency } from '../../lib/money';
 import { EARLIEST_PERIOD, formatPeriodLabel } from '../../lib/period';
@@ -295,17 +296,20 @@ export function AnalyticsCharts({
                   <Tooltip
                     formatter={(value, _name, item) => {
                       const key = (
-                        item?.payload as { key?: 'savings' | 'spent' }
+                        item?.payload as { key?: YtdSavesVsSpentSliceKey }
                       )?.key;
+                      const labels: Record<YtdSavesVsSpentSliceKey, string> = {
+                        savings: t('analytics.chartsYtdFreeSavings'),
+                        invested: t('analytics.chartsYtdInvested'),
+                        spent: t('analytics.chartsYtdSpent'),
+                      };
                       return [
                         formatTooltipValue(
                           value as number,
                           chartCurrency,
                           locale,
                         ),
-                        key === 'savings'
-                          ? t('analytics.chartsYtdSavings')
-                          : t('analytics.chartsYtdSpent'),
+                        key ? labels[key] : '',
                       ];
                     }}
                   />
@@ -327,11 +331,17 @@ export function AnalyticsCharts({
                     ? slice.percent.toFixed(1)
                     : String(Math.round(slice.percent));
                 const amountCents =
-                  slice.key === 'savings' ? ytd.savingsCents : ytd.spentCents;
+                  slice.key === 'savings'
+                    ? ytd.savingsCents
+                    : slice.key === 'invested'
+                      ? ytd.investedCents
+                      : ytd.spentCents;
                 const label =
                   slice.key === 'savings'
-                    ? t('analytics.chartsYtdSavings')
-                    : t('analytics.chartsYtdSpent');
+                    ? t('analytics.chartsYtdFreeSavings')
+                    : slice.key === 'invested'
+                      ? t('analytics.chartsYtdInvested')
+                      : t('analytics.chartsYtdSpent');
                 return (
                   <li
                     key={slice.key}
@@ -362,7 +372,7 @@ export function AnalyticsCharts({
             {ytd.savingsCents < 0 &&
             !ytd.slices.some((slice) => slice.key === 'savings') ? (
               <p className="mt-2 text-center text-xs text-gray-500">
-                {t('analytics.chartsYtdSavings')}{' '}
+                {t('analytics.chartsYtdFreeSavings')}{' '}
                 <span className="tabular-nums">
                   {formatCentsAsCurrency(
                     ytd.savingsCents,
@@ -417,13 +427,19 @@ export function AnalyticsCharts({
               <Tooltip
                 formatter={(value, name) => {
                   if (value == null) return ['—', ''];
-                  return [
-                    formatTooltipValue(value as number, chartCurrency, locale),
+                  const seriesLabel =
                     name === 'income'
                       ? t('analytics.chartIncome', { currency: chartCurrency })
-                      : t('analytics.chartExpenses', {
-                          currency: chartCurrency,
-                        }),
+                      : name === 'invested'
+                        ? t('analytics.chartInvested', {
+                            currency: chartCurrency,
+                          })
+                        : t('analytics.chartExpenses', {
+                            currency: chartCurrency,
+                          });
+                  return [
+                    formatTooltipValue(value as number, chartCurrency, locale),
+                    seriesLabel,
                   ];
                 }}
                 labelFormatter={(label) => String(label)}
@@ -436,7 +452,16 @@ export function AnalyticsCharts({
               <Bar
                 dataKey="expenses"
                 name="expenses"
+                stackId="outflow"
                 fill={CHART_SERIES_COLORS.expenses}
+                radius={[0, 0, 0, 0]}
+                maxBarSize={40}
+              />
+              <Bar
+                dataKey="invested"
+                name="invested"
+                stackId="outflow"
+                fill={CHART_SERIES_COLORS.invested}
                 radius={[6, 6, 0, 0]}
                 maxBarSize={40}
               />
@@ -455,6 +480,10 @@ export function AnalyticsCharts({
             {
               color: CHART_SERIES_COLORS.expenses,
               label: t('analytics.chartExpenses', { currency: chartCurrency }),
+            },
+            {
+              color: CHART_SERIES_COLORS.invested,
+              label: t('analytics.chartInvested', { currency: chartCurrency }),
             },
             {
               color: CHART_SERIES_COLORS.income,
@@ -504,11 +533,15 @@ export function AnalyticsCharts({
               />
               <ReferenceLine y={0} stroke="#d1d5db" />
               <Tooltip
-                formatter={(value) => [
+                formatter={(value, name) => [
                   formatTooltipValue(value as number, chartCurrency, locale),
-                  t('analytics.chartsMonthlySavings', {
-                    currency: chartCurrency,
-                  }),
+                  name === 'invested'
+                    ? t('analytics.chartsMonthlyInvested', {
+                        currency: chartCurrency,
+                      })
+                    : t('analytics.chartsMonthlySavings', {
+                        currency: chartCurrency,
+                      }),
                 ]}
                 labelFormatter={(label) => String(label)}
                 contentStyle={{
@@ -520,8 +553,9 @@ export function AnalyticsCharts({
               <Bar
                 dataKey="savings"
                 name="savings"
+                stackId="aside"
                 maxBarSize={48}
-                radius={[6, 6, 0, 0]}
+                radius={[0, 0, 0, 0]}
               >
                 {monthlySavingsData.map((point) => (
                   <Cell
@@ -534,6 +568,14 @@ export function AnalyticsCharts({
                   />
                 ))}
               </Bar>
+              <Bar
+                dataKey="invested"
+                name="invested"
+                stackId="aside"
+                fill={CHART_SERIES_COLORS.invested}
+                maxBarSize={48}
+                radius={[6, 6, 0, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -542,6 +584,12 @@ export function AnalyticsCharts({
             {
               color: CHART_SERIES_COLORS.savings,
               label: t('analytics.chartsMonthlySavings', {
+                currency: chartCurrency,
+              }),
+            },
+            {
+              color: CHART_SERIES_COLORS.invested,
+              label: t('analytics.chartsMonthlyInvested', {
                 currency: chartCurrency,
               }),
             },
