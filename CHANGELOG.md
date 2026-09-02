@@ -7,6 +7,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Sections are generated automatically by `.github/workflows/release.yml` on each push to `production`.
 
+## [0.0.20] - 2026-09-02
+
+### Features
+- add long-term expenses page and sidebar navigation (#49)
+
 ## [0.0.19] - 2026-08-26
 
 ### Features
