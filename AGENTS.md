@@ -5,7 +5,7 @@ React 19 + Vite SPA for **Spendwell**.
 Implemented frontend scope:
 
 - Supabase authentication (`useAuthStore`)
-- Route guards (`/`, `/auth`, `/onboarding`, `/receipt-scan`, `/analytics`, `/budget`, `/settings`)
+- Route guards (`/`, `/auth`, `/onboarding`, `/receipt-scan`, `/analytics`, `/budget`, `/savings-goals`, `/settings`)
 - Onboarding questionnaire + AI template generation
 - Dashboard template selection/activation
 - Dashboard template preview: web/mobile toggle with touch-like drag-to-scroll simulation
@@ -14,6 +14,7 @@ Implemented frontend scope:
 - Receipt scanner page (`/receipt-scan`) with image OCR scan and expense approval
 - Settings page (`/settings`): account, summary schedule, AI usage credits/audit
 - Budget planner (`/budget`): reusable monthly category amounts + planned vs actual charts
+- Long-term expenses (`/savings-goals`): named savings events with progress
 - Test-email trigger via GraphQL
 
 ## Prerequisites
@@ -50,8 +51,8 @@ A Husky pre-commit hook runs `lint-staged` (ESLint + Prettier) on staged files b
 src/
 ├── App.tsx
 ├── main.tsx
-├── components/              # Settings panels, analytics, budget, shared UI
-├── pages/                   # Dashboard, Onboarding, ReceiptScanner, Analytics, BudgetPlanner, Settings
+├── components/              # Settings panels, analytics, budget, savings, shared UI
+├── pages/                   # Dashboard, Onboarding, ReceiptScanner, Analytics, BudgetPlanner, LongTermSavings, Settings
 ├── services/                # GraphQL API layer
 ├── store/                   # useAuthStore, useOnboardingStore, useBlockingLoaderStore
 ├── lib/                     # supabase singleton + chart/money helpers
