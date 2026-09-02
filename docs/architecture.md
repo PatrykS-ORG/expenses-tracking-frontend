@@ -9,6 +9,7 @@ Spendwell frontend is a React SPA (Vite) that:
 - guides users through onboarding → upload → dashboard workflow,
 - provides a receipt scanner page for OCR-based expense entry,
 - exposes a budget planner (`/budget`) for a reusable monthly category plan,
+- exposes long-term expenses (`/savings-goals`) for named savings events,
 - exposes Settings (`/settings`) for account, summary schedule, and AI usage.
 
 ```mermaid
@@ -34,22 +35,24 @@ flowchart TB
 
 Defined in `src/App.tsx`:
 
-| Path            | Condition      | Render              |
-| --------------- | -------------- | ------------------- |
-| `/`             | session exists | `Dashboard`         |
-| `/`             | no session     | redirect to `/auth` |
-| `/auth`         | no session     | `Auth`              |
-| `/auth`         | session exists | redirect to `/`     |
-| `/onboarding`   | session exists | `Onboarding`        |
-| `/onboarding`   | no session     | redirect to `/auth` |
-| `/receipt-scan` | session exists | `ReceiptScanner`    |
-| `/receipt-scan` | no session     | redirect to `/auth` |
-| `/analytics`    | session exists | `Analytics`         |
-| `/analytics`    | no session     | redirect to `/auth` |
-| `/budget`       | session exists | `BudgetPlanner`     |
-| `/budget`       | no session     | redirect to `/auth` |
-| `/settings`     | session exists | `Settings`          |
-| `/settings`     | no session     | redirect to `/auth` |
+| Path             | Condition      | Render              |
+| ---------------- | -------------- | ------------------- |
+| `/`              | session exists | `Dashboard`         |
+| `/`              | no session     | redirect to `/auth` |
+| `/auth`          | no session     | `Auth`              |
+| `/auth`          | session exists | redirect to `/`     |
+| `/onboarding`    | session exists | `Onboarding`        |
+| `/onboarding`    | no session     | redirect to `/auth` |
+| `/receipt-scan`  | session exists | `ReceiptScanner`    |
+| `/receipt-scan`  | no session     | redirect to `/auth` |
+| `/analytics`     | session exists | `Analytics`         |
+| `/analytics`     | no session     | redirect to `/auth` |
+| `/budget`        | session exists | `BudgetPlanner`     |
+| `/budget`        | no session     | redirect to `/auth` |
+| `/savings-goals` | session exists | `LongTermSavings`   |
+| `/savings-goals` | no session     | redirect to `/auth` |
+| `/settings`      | session exists | `Settings`          |
+| `/settings`      | no session     | redirect to `/auth` |
 
 Onboarding success navigates to `/?setup=upload` to highlight the upload step. Dashboard links to `/receipt-scan` for receipt-based expense entry.
 
@@ -70,7 +73,7 @@ Page-level local state is used in `Dashboard` for:
 
 ## Backend communication pattern
 
-`src/services/onboarding.service.ts` is the API gateway for dashboard/onboarding flows. `src/services/budget.service.ts` covers the reusable monthly category budget (`myMonthlyBudget` / `saveMonthlyBudget`).
+`src/services/onboarding.service.ts` is the API gateway for dashboard/onboarding flows. `src/services/budget.service.ts` covers the reusable monthly category budget (`myMonthlyBudget` / `saveMonthlyBudget`). `src/services/savingsGoals.service.ts` covers long-term savings events (`mySavingsGoals` and event/item/contribution mutations).
 
 ### GraphQL operations
 
@@ -96,6 +99,9 @@ Page-level local state is used in `Dashboard` for:
 - `myAiUsageSummary`
 - `myAiUsageLog`
 - `myMonthlyBudget` / `saveMonthlyBudget`
+- `mySavingsGoals` / `createSavingsGoalEvent` / `updateSavingsGoalEvent` / `deleteSavingsGoalEvent`
+- `createSavingsGoalItem` / `updateSavingsGoalItem` / `deleteSavingsGoalItem`
+- `addSavingsGoalContribution` / `deleteSavingsGoalContribution`
 
 ### URL strategy
 
