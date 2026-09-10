@@ -26,14 +26,18 @@ import {
   type DataSourceType,
   type ExpenseCategorySuggestion,
 } from '../services/onboarding.service';
+import { getMonthClosureStatus } from '../services/monthClose.service';
 import type { SummaryCategoryKey } from '../types/analytics.types';
+import type { MonthClosureStatus } from '../types/monthClose.types';
 import { useAuthStore } from '../store/useAuthStore';
 import { runWithBlockingLoader } from '../store/useBlockingLoaderStore';
 import { useUnsavedChangesWarning } from '../store/useUnsavedChangesStore';
+import { MonthCloseBanner } from './savings/MonthCloseBanner';
 
 export function ExpenseSourcePanel() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const token = useAuthStore((state) => state.session?.access_token);
+  const locale = i18n.resolvedLanguage ?? 'pl';
   const [dataSourceType, setDataSourceType] =
     useState<DataSourceType>('FILE_UPLOAD');
   const [nextcloudPath, setNextcloudPath] = useState('');
@@ -54,6 +58,9 @@ export function ExpenseSourcePanel() {
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [monthClosure, setMonthClosure] = useState<MonthClosureStatus | null>(
+    null,
+  );
 
   const categoryLabel = useCallback(
     (key: SummaryCategoryKey) => t(`analytics.categories.${key}`),
@@ -109,9 +116,13 @@ export function ExpenseSourcePanel() {
 
   const load = useCallback(async () => {
     if (!token) return;
-    await refreshDashboardMeta();
-    const expenses = await getCurrentMonthExpenses(token);
+    const [, expenses, closure] = await Promise.all([
+      refreshDashboardMeta(),
+      getCurrentMonthExpenses(token),
+      getMonthClosureStatus(token),
+    ]);
     applyExpenses(expenses);
+    setMonthClosure(closure);
   }, [applyExpenses, refreshDashboardMeta, token]);
 
   useEffect(() => {
@@ -219,7 +230,9 @@ export function ExpenseSourcePanel() {
         </div>
         <Link
           to="/receipt-scan"
-          className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
+          className={`inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 ${
+            monthClosure?.needsClosure ? 'pointer-events-none opacity-50' : ''
+          }`}
         >
           <ScanSearch className="h-4 w-4" />
           {t('dashboard.scanReceipt')}
@@ -239,6 +252,18 @@ export function ExpenseSourcePanel() {
       {salaryMissing && (
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           {t('dashboard.salaryMissingWarning')}
+        </div>
+      )}
+      {token && monthClosure?.needsClosure && (
+        <div className="mt-4">
+          <MonthCloseBanner
+            token={token}
+            status={monthClosure}
+            locale={locale}
+            onClosed={() => {
+              void load();
+            }}
+          />
         </div>
       )}
 
@@ -319,6 +344,10 @@ export function ExpenseSourcePanel() {
             {t('common.save')}
           </button>
         </form>
+      ) : monthClosure?.needsClosure ? (
+        <p className="mt-4 text-sm text-gray-600">
+          {t('monthClose.blockedHint')}
+        </p>
       ) : (
         <div className="mt-4 space-y-3">
           <form

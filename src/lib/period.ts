@@ -1,9 +1,4 @@
-/**
- * Utilities for working with `YYYY-MM` period strings in a specific
- * timezone. The analytics feature relies on the user's summary timezone to
- * decide which months are "ended" and which one is the currently-running
- * calendar month.
- */
+import { getTestNowDate } from './testNow';
 
 export function browserTimezone(): string {
   try {
@@ -17,13 +12,16 @@ export function toPeriod(year: number, monthOneBased: number): string {
   return `${String(year).padStart(4, '0')}-${String(monthOneBased).padStart(2, '0')}`;
 }
 
-export function currentMonthInTimezone(tz: string): string {
+export function currentMonthInTimezone(
+  tz: string,
+  now: Date = getTestNowDate(),
+): string {
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: tz,
     year: 'numeric',
     month: '2-digit',
   });
-  const parts = formatter.formatToParts(new Date());
+  const parts = formatter.formatToParts(now);
   const year = Number(parts.find((p) => p.type === 'year')?.value ?? '0');
   const month = Number(parts.find((p) => p.type === 'month')?.value ?? '0');
   return toPeriod(year, month);

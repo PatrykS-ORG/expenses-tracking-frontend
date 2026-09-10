@@ -46,9 +46,12 @@ import type {
   SummaryAnalytics,
   SummaryCategoryKey,
 } from '../types/analytics.types';
+import { getMonthClosureStatus } from '../services/monthClose.service';
+import type { MonthClosureStatus } from '../types/monthClose.types';
 import { useAuthStore } from '../store/useAuthStore';
 import { runWithBlockingLoader } from '../store/useBlockingLoaderStore';
 import { useUnsavedChangesWarning } from '../store/useUnsavedChangesStore';
+import { MonthCloseBanner } from '../components/savings/MonthCloseBanner';
 
 type ViewMode = 'detail' | 'create' | 'edit';
 
@@ -87,6 +90,9 @@ export function Analytics() {
     useState('');
   const [currentMonthChartSummary, setCurrentMonthChartSummary] =
     useState<SummaryAnalytics | null>(null);
+  const [monthClosure, setMonthClosure] = useState<MonthClosureStatus | null>(
+    null,
+  );
 
   const currentPeriod = useMemo(
     () => currentMonthInTimezone(timezone),
@@ -231,10 +237,11 @@ export function Analytics() {
       setLoading(true);
       setError(null);
       try {
-        const [schedule, rows, dashboard] = await Promise.all([
+        const [schedule, rows, dashboard, closure] = await Promise.all([
           getSummarySchedule(token, controller.signal),
           getMySummaries(token, controller.signal),
           getTemplateDashboard(token, controller.signal),
+          getMonthClosureStatus(token, controller.signal),
         ]);
         if (controller.signal.aborted) return;
 
@@ -242,6 +249,7 @@ export function Analytics() {
         setCurrency(schedule.currency);
         setSummaries(rows);
         setProfileSalaryCents(dashboard.salaryCents);
+        setMonthClosure(closure);
 
         const current = currentMonthInTimezone(schedule.timezone);
         const defaultPeriod = previousPeriod(current);
@@ -590,39 +598,59 @@ export function Analytics() {
               )}
             </div>
 
-            <form onSubmit={handleSaveCurrentMonth}>
-              <ExpenseFormSaveBar
-                dirty={currentMonthDirty}
-                busy={busy || suggestBusy}
-                unsavedLabel={t('dashboard.unsavedFileChanges')}
-                savedLabel={t('dashboard.fileSaved')}
-                saveLabel={t('common.save')}
+            {token && monthClosure?.needsClosure ? (
+              <MonthCloseBanner
+                token={token}
+                status={monthClosure}
+                locale={locale}
+                onClosed={() => {
+                  void (async () => {
+                    const [closure, expenses, rows] = await Promise.all([
+                      getMonthClosureStatus(token),
+                      getCurrentMonthExpenses(token),
+                      getMySummaries(token),
+                    ]);
+                    setMonthClosure(closure);
+                    applyCurrentMonthExpenses(expenses);
+                    setSummaries(rows);
+                  })();
+                }}
               />
-              <CategoryExpenseForm
-                categories={categories}
-                unassigned={unassigned}
-                showUnassigned
-                autoTotalFromItems
-                busy={busy || suggestBusy}
-                suggestBusy={suggestBusy}
-                categoriesTitle={t('analytics.categoriesTitle')}
-                categoryLabel={categoryLabel}
-                categoryTotalLabel={t('analytics.categoryTotalLabel')}
-                lineItemsLabel={t('analytics.lineItemsLabel')}
-                itemNameLabel={t('analytics.itemNameLabel')}
-                itemAmountLabel={t('analytics.itemAmountLabel')}
-                addLineItemLabel={t('analytics.addLineItem')}
-                removeLineItemLabel={t('analytics.removeLineItem')}
-                unassignedTitle={t('dashboard.unassignedTitle')}
-                unassignedHint={t('dashboard.unassignedHint')}
-                moveToCategoryLabel={t('dashboard.moveToCategory')}
-                suggestCategoriesLabel={t('dashboard.suggestCategories')}
-                addUnassignedLabel={t('dashboard.addUnassigned')}
-                onCategoriesChange={setCategories}
-                onUnassignedChange={setUnassigned}
-                onSuggestCategories={handleSuggestCategories}
-              />
-            </form>
+            ) : (
+              <form onSubmit={handleSaveCurrentMonth}>
+                <ExpenseFormSaveBar
+                  dirty={currentMonthDirty}
+                  busy={busy || suggestBusy}
+                  unsavedLabel={t('dashboard.unsavedFileChanges')}
+                  savedLabel={t('dashboard.fileSaved')}
+                  saveLabel={t('common.save')}
+                />
+                <CategoryExpenseForm
+                  categories={categories}
+                  unassigned={unassigned}
+                  showUnassigned
+                  autoTotalFromItems
+                  busy={busy || suggestBusy}
+                  suggestBusy={suggestBusy}
+                  categoriesTitle={t('analytics.categoriesTitle')}
+                  categoryLabel={categoryLabel}
+                  categoryTotalLabel={t('analytics.categoryTotalLabel')}
+                  lineItemsLabel={t('analytics.lineItemsLabel')}
+                  itemNameLabel={t('analytics.itemNameLabel')}
+                  itemAmountLabel={t('analytics.itemAmountLabel')}
+                  addLineItemLabel={t('analytics.addLineItem')}
+                  removeLineItemLabel={t('analytics.removeLineItem')}
+                  unassignedTitle={t('dashboard.unassignedTitle')}
+                  unassignedHint={t('dashboard.unassignedHint')}
+                  moveToCategoryLabel={t('dashboard.moveToCategory')}
+                  suggestCategoriesLabel={t('dashboard.suggestCategories')}
+                  addUnassignedLabel={t('dashboard.addUnassigned')}
+                  onCategoriesChange={setCategories}
+                  onUnassignedChange={setUnassigned}
+                  onSuggestCategories={handleSuggestCategories}
+                />
+              </form>
+            )}
           </section>
         ) : selectedSummary && viewMode === 'detail' ? (
           <SummaryDetailPanel

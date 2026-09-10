@@ -4,6 +4,7 @@ import type {
   SummaryCategoryKey,
   UpdateManualSummaryInput,
 } from '../types/analytics.types';
+import { graphqlHeaders } from '../lib/graphqlHeaders';
 
 interface GraphQLError {
   message?: string;
@@ -48,10 +49,7 @@ async function graphqlRequest<TData>(
 ): Promise<TData> {
   const res = await fetch(GRAPHQL_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: graphqlHeaders(accessToken),
     body: JSON.stringify({ query, variables }),
     signal,
   });

@@ -73,7 +73,7 @@ Page-level local state is used in `Dashboard` for:
 
 ## Backend communication pattern
 
-`src/services/onboarding.service.ts` is the API gateway for dashboard/onboarding flows. `src/services/budget.service.ts` covers the reusable monthly category budget (`myMonthlyBudget` / `saveMonthlyBudget`). `src/services/savingsGoals.service.ts` covers long-term savings events (`mySavingsGoals` and event/item/contribution mutations).
+`src/services/onboarding.service.ts` is the API gateway for dashboard/onboarding flows. `src/services/budget.service.ts` covers the reusable monthly category budget (`myMonthlyBudget` / `saveMonthlyBudget`). `src/services/savingsGoals.service.ts` covers long-term savings events (`mySavingsGoals` and event/item/contribution mutations). `src/services/monthClose.service.ts` covers leftover allocation (`monthClosureStatus` / `closeMonth`). In Vite dev, `?testNow=ISO` is sent as `X-Test-Now` so the backend can simulate a month boundary.
 
 ### GraphQL operations
 
@@ -102,6 +102,7 @@ Page-level local state is used in `Dashboard` for:
 - `mySavingsGoals` / `createSavingsGoalEvent` / `updateSavingsGoalEvent` / `deleteSavingsGoalEvent`
 - `createSavingsGoalItem` / `updateSavingsGoalItem` / `deleteSavingsGoalItem`
 - `addSavingsGoalContribution` / `deleteSavingsGoalContribution`
+- `monthClosureStatus` / `closeMonth`
 
 ### URL strategy
 
