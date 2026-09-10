@@ -6,6 +6,8 @@ type EventTabsProps = {
   selectedId: string | null;
   busy?: boolean;
   addLabel: string;
+  disabledIds?: Set<string>;
+  disabledTitle?: string;
   onSelect: (id: string) => void;
   onAdd: () => void;
 };
@@ -15,6 +17,8 @@ export function EventTabs({
   selectedId,
   busy = false,
   addLabel,
+  disabledIds,
+  disabledTitle,
   onSelect,
   onAdd,
 }: EventTabsProps) {
@@ -22,11 +26,13 @@ export function EventTabs({
     <div className="flex flex-wrap items-center gap-2">
       {events.map((event) => {
         const isActive = event.id === selectedId;
+        const isDisabled = Boolean(disabledIds?.has(event.id));
         return (
           <button
             key={event.id}
             type="button"
-            disabled={busy}
+            disabled={busy || isDisabled}
+            title={isDisabled ? disabledTitle : undefined}
             onClick={() => onSelect(event.id)}
             className={`rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50 ${
               isActive

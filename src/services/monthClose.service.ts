@@ -1,8 +1,9 @@
-import type {
-  MonthlyBudget,
-  SaveMonthlyBudgetInput,
-} from '../types/budget.types';
+import { getTestNowIso } from '../lib/testNow';
 import { graphqlHeaders } from '../lib/graphqlHeaders';
+import type {
+  MonthCloseAllocation,
+  MonthClosureStatus,
+} from '../types/monthClose.types';
 
 interface GraphQLError {
   message?: string;
@@ -16,22 +17,14 @@ interface GraphQLResponse<TData> {
 const GRAPHQL_URL =
   import.meta.env.VITE_API_URL || 'http://localhost:3000/graphql';
 
-const BUDGET_FIELDS = `
-  id
+const STATUS_FIELDS = `
+  needsClosure
+  period
+  currentPeriod
+  freeSavingsCents
+  salaryCents
+  totalExpensesCents
   currency
-  categories {
-    key
-    amountCents
-  }
-  extraExpense {
-    name
-    amountCents
-    cuts {
-      key
-      cutPercent
-    }
-  }
-  updatedAt
 `;
 
 async function graphqlRequest<TData>(
@@ -65,44 +58,54 @@ async function graphqlRequest<TData>(
   return data;
 }
 
-export async function getMyMonthlyBudget(
+export async function getMonthClosureStatus(
   accessToken: string,
   signal?: AbortSignal,
-): Promise<MonthlyBudget | null> {
-  const data = await graphqlRequest<{ myMonthlyBudget?: MonthlyBudget | null }>(
+): Promise<MonthClosureStatus> {
+  const data = await graphqlRequest<{
+    monthClosureStatus?: MonthClosureStatus;
+  }>(
     accessToken,
     `
-      query MyMonthlyBudget {
-        myMonthlyBudget {
-          ${BUDGET_FIELDS}
+      query MonthClosureStatus($testNow: String) {
+        monthClosureStatus(testNow: $testNow) {
+          ${STATUS_FIELDS}
         }
       }
     `,
-    undefined,
+    { testNow: getTestNowIso() },
     signal,
   );
-  return data.myMonthlyBudget ?? null;
+  if (!data.monthClosureStatus) {
+    throw new Error('Failed to load month closure status');
+  }
+  return data.monthClosureStatus;
 }
 
-export async function saveMonthlyBudget(
+export async function closeMonth(
   accessToken: string,
-  input: SaveMonthlyBudgetInput,
-): Promise<MonthlyBudget> {
-  const data = await graphqlRequest<{ saveMonthlyBudget?: MonthlyBudget }>(
+  period: string,
+  allocations: MonthCloseAllocation[],
+): Promise<MonthClosureStatus> {
+  const data = await graphqlRequest<{ closeMonth?: MonthClosureStatus }>(
     accessToken,
     `
-      mutation SaveMonthlyBudget($input: SaveMonthlyBudgetInput!) {
-        saveMonthlyBudget(input: $input) {
-          ${BUDGET_FIELDS}
+      mutation CloseMonth($input: CloseMonthInput!) {
+        closeMonth(input: $input) {
+          ${STATUS_FIELDS}
         }
       }
     `,
-    { input },
+    {
+      input: {
+        period,
+        allocations,
+        testNow: getTestNowIso(),
+      },
+    },
   );
-
-  if (!data.saveMonthlyBudget) {
-    throw new Error('Failed to save monthly budget');
+  if (!data.closeMonth) {
+    throw new Error('Failed to close month');
   }
-
-  return data.saveMonthlyBudget;
+  return data.closeMonth;
 }

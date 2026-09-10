@@ -7,13 +7,17 @@ import {
   approveReceiptExpenses,
   scanReceipt,
 } from '../services/onboarding.service';
+import { getMonthClosureStatus } from '../services/monthClose.service';
+import { MonthCloseBanner } from '../components/savings/MonthCloseBanner';
+import type { MonthClosureStatus } from '../types/monthClose.types';
 import { runWithBlockingLoader } from '../store/useBlockingLoaderStore';
 import { useUnsavedChangesWarning } from '../store/useUnsavedChangesStore';
 
 export function ReceiptScanner() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { session } = useAuthStore();
+  const locale = i18n.resolvedLanguage ?? 'pl';
   const [selectedReceiptFile, setSelectedReceiptFile] = useState<File | null>(
     null,
   );
@@ -24,6 +28,18 @@ export function ReceiptScanner() {
   const [isApproving, setIsApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [monthClosure, setMonthClosure] = useState<MonthClosureStatus | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!session?.access_token) return;
+    void getMonthClosureStatus(session.access_token)
+      .then(setMonthClosure)
+      .catch(() => {
+        // Banner is optional here; approve still fails server-side if closed.
+      });
+  }, [session?.access_token]);
 
   useEffect(() => {
     if (!selectedReceiptFile) {
@@ -81,6 +97,10 @@ export function ReceiptScanner() {
     if (!session?.access_token) {
       return;
     }
+    if (monthClosure?.needsClosure) {
+      setError(t('monthClose.blockedHint'));
+      return;
+    }
 
     setError(null);
     setSuccess(null);
@@ -132,6 +152,18 @@ export function ReceiptScanner() {
           <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
             {success}
           </div>
+        )}
+        {session?.access_token && monthClosure?.needsClosure && (
+          <MonthCloseBanner
+            token={session.access_token}
+            status={monthClosure}
+            locale={locale}
+            onClosed={() => {
+              void getMonthClosureStatus(session.access_token).then(
+                setMonthClosure,
+              );
+            }}
+          />
         )}
 
         <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
@@ -213,7 +245,11 @@ export function ReceiptScanner() {
               </p>
               <button
                 type="submit"
-                disabled={isApproving || !extractedText.trim()}
+                disabled={
+                  isApproving ||
+                  !extractedText.trim() ||
+                  Boolean(monthClosure?.needsClosure)
+                }
                 className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Save className="h-4 w-4" />

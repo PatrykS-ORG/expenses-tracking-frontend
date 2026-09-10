@@ -426,5 +426,31 @@
     "createSuccess": "Saved.",
     "updateSuccess": "Updated.",
     "deleteSuccess": "Deleted."
+  },
+  "monthClose": {
+    "bannerTitle": "Close {{month}} before adding new expenses",
+    "bannerBody": "Leftover cash: {{amount}}. Allocate all of it to long-term sub-goals to unlock the new month.",
+    "openWizard": "Allocate leftover",
+    "blockedHint": "Finish closing the previous month before adding new expenses or approving receipts.",
+    "wizardTitle": "Close {{month}}",
+    "wizardSubtitle": "Choose an event, then a sub-goal, and allocate the leftover until nothing remains.",
+    "remaining": "Left to allocate: {{amount}}",
+    "amountLabel": "Amount",
+    "addAllocation": "Add allocation",
+    "closeButton": "Close month",
+    "closeError": "Could not close the month. Try again.",
+    "invalidAmount": "Enter a positive amount that does not exceed what is left to allocate.",
+    "overshootWarning": "This amount is more than the sub-goal still needs. You can still add it.",
+    "currencyMismatchHint": "This event uses a different currency than {{currency}}.",
+    "noCompatibleEvents": "Create an event in {{currency}} first, then add a sub-goal.",
+    "noSubGoals": "Add a sub-goal to this event before allocating.",
+    "errors": {
+      "MONTH_NOT_CLOSED": "Close the previous month before adding new expenses.",
+      "AMOUNT_MISMATCH": "Allocated amounts must add up to the leftover cash.",
+      "CURRENCY_MISMATCH": "That sub-goal is in a different currency than your summary.",
+      "PERIOD_MISMATCH": "This close request is for a different month.",
+      "ALREADY_CLOSED": "This month is already closed.",
+      "EMPTY_ALLOCATIONS": "Add at least one allocation."
+    }
   }
 }
