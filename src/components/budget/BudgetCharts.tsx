@@ -34,6 +34,7 @@ type BudgetChartsProps = {
   actualCents: Partial<Record<SummaryCategoryKey, number>>;
   cutSummary?: ExtraExpenseCutSummary | null;
   loadingActual?: boolean;
+  actualPeriodLabel: string;
   locale: string;
   currency: string;
   t: TFunction;
@@ -79,6 +80,7 @@ export function BudgetCharts({
   actualCents,
   cutSummary,
   loadingActual = false,
+  actualPeriodLabel,
   locale,
   currency,
   t,
@@ -174,7 +176,7 @@ export function BudgetCharts({
         )}
       </ChartCard>
 
-      <ChartCard title={t('budget.vsActual')}>
+      <ChartCard title={t('budget.vsActual', { month: actualPeriodLabel })}>
         {loadingActual ? (
           <div className="flex h-96 items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600" />

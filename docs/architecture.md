@@ -8,7 +8,7 @@ Spendwell frontend is a React SPA (Vite) that:
 - calls backend GraphQL for templates, settings, AI usage, file upload, receipt scanning, monthly budget, savings goals, analytics summaries, Suggest categories, and month close,
 - guides users through onboarding → upload → dashboard workflow,
 - provides a receipt scanner page for OCR-based expense entry,
-- exposes Analytics (`/analytics`) for ended-month history and live current-month charts,
+- exposes Analytics (`/analytics`) for the selected year's months, with live charts only for the actual current month,
 - exposes a budget planner (`/budget`) for a reusable monthly category plan (optional extra expense),
 - exposes long-term expenses (`/savings-goals`) for named savings events,
 - runs a **month-close wizard** when leftover cash from the previous month must be allocated before new-month writes,
@@ -62,12 +62,15 @@ Onboarding success navigates to `/?setup=upload` to highlight the upload step. D
 
 ## State management
 
-| Store                    | File                                  | Responsibility                                       |
-| ------------------------ | ------------------------------------- | ---------------------------------------------------- |
-| `useAuthStore`           | `src/store/useAuthStore.ts`           | session, user, bootstrapping, sign-out               |
-| `useOnboardingStore`     | `src/store/useOnboardingStore.ts`     | questionnaire state + template generation            |
-| `useBlockingLoaderStore` | `src/store/useBlockingLoaderStore.ts` | global blocking overlay for user-triggered mutations |
-| `useUnsavedChangesStore` | `src/store/useUnsavedChangesStore.ts` | dirty-form / navigation guard for in-progress edits  |
+| Store                     | File                                   | Responsibility                                       |
+| ------------------------- | -------------------------------------- | ---------------------------------------------------- |
+| `useAuthStore`            | `src/store/useAuthStore.ts`            | session, user, bootstrapping, sign-out               |
+| `useOnboardingStore`      | `src/store/useOnboardingStore.ts`      | questionnaire state + template generation            |
+| `useBlockingLoaderStore`  | `src/store/useBlockingLoaderStore.ts`  | global blocking overlay for user-triggered mutations |
+| `useUnsavedChangesStore`  | `src/store/useUnsavedChangesStore.ts`  | dirty-form / navigation guard for in-progress edits  |
+| `useCalendarContextStore` | `src/store/useCalendarContextStore.ts` | session year/month; resets on logout or reload       |
+
+`AppLayout` loads the summary timezone once per session and renders the header year control (`CalendarYearSelect`). The selection is not persisted. Past years make financial screens read-only; `/savings-goals` does not read the store.
 
 Page-level local state is used in `Dashboard` for:
 

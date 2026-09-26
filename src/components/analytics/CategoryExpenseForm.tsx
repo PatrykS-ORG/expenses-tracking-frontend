@@ -22,6 +22,7 @@ type CategoryExpenseFormProps = {
    */
   autoTotalWhenItemsPresent?: boolean;
   busy?: boolean;
+  readOnly?: boolean;
   suggestBusy?: boolean;
   categoriesTitle: string;
   categoryLabel: (key: SummaryCategoryKey) => string;
@@ -48,6 +49,7 @@ export function CategoryExpenseForm({
   autoTotalFromItems = false,
   autoTotalWhenItemsPresent = false,
   busy = false,
+  readOnly = false,
   suggestBusy = false,
   categoriesTitle,
   categoryLabel,
@@ -67,6 +69,7 @@ export function CategoryExpenseForm({
   onSuggestCategories,
 }: CategoryExpenseFormProps) {
   const { t } = useTranslation();
+  const locked = busy || readOnly;
   const [expandedKeys, setExpandedKeys] = useState<
     Partial<Record<SummaryCategoryKey, boolean>>
   >({});
@@ -272,11 +275,11 @@ export function CategoryExpenseForm({
                 <p className="mt-1 text-xs text-gray-600">{unassignedHint}</p>
               )}
             </div>
-            {onSuggestCategories && (
+            {onSuggestCategories && !readOnly && (
               <button
                 type="button"
                 disabled={
-                  busy ||
+                  locked ||
                   suggestBusy ||
                   unassigned.filter((item) => item.name.trim()).length === 0
                 }
@@ -299,7 +302,7 @@ export function CategoryExpenseForm({
                 <input
                   type="text"
                   value={item.name}
-                  disabled={busy}
+                  disabled={locked}
                   onChange={(event) =>
                     updateUnassignedItem(index, 'name', event.target.value)
                   }
@@ -312,7 +315,7 @@ export function CategoryExpenseForm({
                   type="text"
                   inputMode="decimal"
                   value={item.amount}
-                  disabled={busy}
+                  disabled={locked}
                   onChange={(event) =>
                     updateUnassignedItem(index, 'amount', event.target.value)
                   }
@@ -323,7 +326,7 @@ export function CategoryExpenseForm({
                 {moveToCategoryLabel}
                 <select
                   value=""
-                  disabled={busy}
+                  disabled={locked}
                   onChange={(event) =>
                     moveUnassignedToCategory(
                       index,
@@ -342,7 +345,7 @@ export function CategoryExpenseForm({
               </label>
               <button
                 type="button"
-                disabled={busy}
+                disabled={locked}
                 onClick={() => removeUnassignedItem(index)}
                 className="mt-6 inline-flex items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
                 aria-label={removeLineItemLabel}
@@ -354,7 +357,7 @@ export function CategoryExpenseForm({
 
           <button
             type="button"
-            disabled={busy}
+            disabled={locked}
             onClick={addUnassignedItem}
             className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50"
           >
@@ -390,7 +393,7 @@ export function CategoryExpenseForm({
                     inputMode="decimal"
                     value={categories[key].total}
                     readOnly={autoTotal}
-                    disabled={busy || autoTotal}
+                    disabled={locked || autoTotal}
                     onChange={(event) =>
                       updateCategoryTotal(key, event.target.value)
                     }
@@ -415,7 +418,7 @@ export function CategoryExpenseForm({
                         <input
                           type="text"
                           value={item.name}
-                          disabled={busy}
+                          disabled={locked}
                           onChange={(event) =>
                             updateLineItem(
                               key,
@@ -433,7 +436,7 @@ export function CategoryExpenseForm({
                           type="text"
                           inputMode="decimal"
                           value={item.amount}
-                          disabled={busy}
+                          disabled={locked}
                           onChange={(event) =>
                             updateLineItem(
                               key,
@@ -449,7 +452,7 @@ export function CategoryExpenseForm({
                         {moveToCategoryLabel}
                         <select
                           value={key}
-                          disabled={busy}
+                          disabled={locked}
                           onChange={(event) =>
                             moveLineItemToCategory(
                               key,
@@ -472,7 +475,7 @@ export function CategoryExpenseForm({
                       </label>
                       <button
                         type="button"
-                        disabled={busy}
+                        disabled={locked}
                         onClick={() => removeLineItem(key, index)}
                         className="mt-6 inline-flex items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
                         aria-label={removeLineItemLabel}
@@ -486,7 +489,7 @@ export function CategoryExpenseForm({
 
               <button
                 type="button"
-                disabled={busy}
+                disabled={locked}
                 onClick={() => addLineItem(key)}
                 className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50"
               >

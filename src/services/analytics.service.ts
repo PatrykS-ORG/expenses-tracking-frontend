@@ -74,18 +74,19 @@ async function graphqlRequest<TData>(
 
 export async function getMySummaries(
   accessToken: string,
+  year: number,
   signal?: AbortSignal,
 ): Promise<SummaryAnalytics[]> {
   const data = await graphqlRequest<{ mySummaries?: SummaryAnalytics[] }>(
     accessToken,
     `
-      query MySummaries {
-        mySummaries {
+      query MySummaries($year: Int!) {
+        mySummaries(year: $year) {
           ${SUMMARY_FIELDS}
         }
       }
     `,
-    undefined,
+    { year },
     signal,
   );
   return data.mySummaries ?? [];

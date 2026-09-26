@@ -2,17 +2,25 @@ import type { FormEvent } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CalendarDays } from 'lucide-react';
+import { ArchiveYearBanner } from '../components/ArchiveYearBanner';
 import { DashboardAlerts } from '../components/DashboardAlerts';
 import { ExpenseFormSaveBar } from '../components/analytics/ExpenseFormSaveBar';
 import { BudgetCategoryForm } from '../components/budget/BudgetCategoryForm';
 import { BudgetCharts } from '../components/budget/BudgetCharts';
 import { ExtraExpenseSection } from '../components/budget/ExtraExpenseSection';
-import { actualCentsFromCurrentMonth } from '../lib/budgetCharts';
+import {
+  actualCentsFromCurrentMonth,
+  actualCentsFromSummary,
+} from '../lib/budgetCharts';
 import {
   currentMonthInTimezone,
+  currentYearMonth,
   formatPeriodLabel,
+  isPastYear,
   shiftPeriod,
+  toPeriod,
 } from '../lib/period';
+import { getMySummary } from '../services/analytics.service';
 import {
   getCurrentMonthExpenses,
   getSummarySchedule,
@@ -34,6 +42,7 @@ import {
   type ExtraExpenseForm,
 } from '../types/budget.types';
 import { useAuthStore } from '../store/useAuthStore';
+import { useCalendarContextStore } from '../store/useCalendarContextStore';
 import { runWithBlockingLoader } from '../store/useBlockingLoaderStore';
 import { useUnsavedChangesWarning } from '../store/useUnsavedChangesStore';
 
@@ -49,6 +58,17 @@ export function BudgetPlanner() {
   const { session } = useAuthStore();
   const token = session?.access_token;
   const locale = i18n.resolvedLanguage ?? 'pl';
+  const selectedYear = useCalendarContextStore((state) => state.selectedYear);
+  const selectedMonth = useCalendarContextStore((state) => state.selectedMonth);
+  const calendarTimezone = useCalendarContextStore((state) => state.timezone);
+  const calendarReady = useCalendarContextStore((state) => state.initialized);
+  const selectedPeriod = toPeriod(selectedYear, selectedMonth);
+  const archiveYear =
+    calendarReady &&
+    isPastYear(selectedYear, currentYearMonth(calendarTimezone).year);
+  const isLivePeriod =
+    calendarReady &&
+    selectedPeriod === currentMonthInTimezone(calendarTimezone);
 
   const [currency, setCurrency] = useState('PLN');
   const [timezone, setTimezone] = useState('Europe/Warsaw');
@@ -89,7 +109,8 @@ export function BudgetPlanner() {
     [locale, timezone],
   );
   const dirty = snapshotOf(amounts, extraExpense) !== savedSnapshot;
-  useUnsavedChangesWarning(dirty);
+  useUnsavedChangesWarning(dirty && !archiveYear);
+  const selectedPeriodLabel = formatPeriodLabel(selectedPeriod, locale);
 
   useEffect(() => {
     if (!token) return;
@@ -132,19 +153,32 @@ export function BudgetPlanner() {
   }, [t, token]);
 
   useEffect(() => {
-    if (!token || loading) return;
+    if (!token || loading || !calendarReady) return;
 
     const controller = new AbortController();
 
     const loadActual = async () => {
       setLoadingActual(true);
       try {
-        const expenses = await getCurrentMonthExpenses(
+        if (isLivePeriod) {
+          const expenses = await getCurrentMonthExpenses(
+            token,
+            controller.signal,
+          );
+          if (controller.signal.aborted) return;
+          setActualCents(actualCentsFromCurrentMonth(expenses));
+          return;
+        }
+
+        const summary = await getMySummary(
           token,
+          selectedPeriod,
           controller.signal,
         );
         if (controller.signal.aborted) return;
-        setActualCents(actualCentsFromCurrentMonth(expenses));
+        setActualCents(
+          summary ? actualCentsFromSummary(summary.categories) : {},
+        );
       } catch {
         if (controller.signal.aborted) return;
         setActualCents({});
@@ -157,13 +191,13 @@ export function BudgetPlanner() {
 
     void loadActual();
     return () => controller.abort();
-  }, [loading, token]);
+  }, [calendarReady, isLivePeriod, loading, selectedPeriod, token]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     void runWithBlockingLoader(async () => {
-      if (!token) return;
+      if (!token || archiveYear) return;
       setBusy(true);
       setError(null);
       setSuccess(null);
@@ -192,7 +226,7 @@ export function BudgetPlanner() {
     }, t('common.saving'));
   };
 
-  if (loading) {
+  if (loading || !calendarReady) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex items-center justify-center py-16">
@@ -208,12 +242,24 @@ export function BudgetPlanner() {
         {t('budget.title')}
       </h1>
       <p className="mt-1 text-sm text-gray-600">{t('budget.subtitle')}</p>
-      <p className="mt-3 flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
-        <CalendarDays
-          className="mt-0.5 h-4 w-4 shrink-0 text-blue-600"
-          aria-hidden
-        />
-        {t('budget.planningForNextMonth', { month: nextMonthLabel })}
+      {archiveYear ? (
+        <div className="mt-3 space-y-3">
+          <ArchiveYearBanner />
+          <p className="text-sm text-gray-600">
+            {t('budget.readOnlyPastYear')}
+          </p>
+        </div>
+      ) : (
+        <p className="mt-3 flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+          <CalendarDays
+            className="mt-0.5 h-4 w-4 shrink-0 text-blue-600"
+            aria-hidden
+          />
+          {t('budget.planningForNextMonth', { month: nextMonthLabel })}
+        </p>
+      )}
+      <p className="mt-3 text-sm text-gray-600">
+        {t('budget.actualsForPeriod', { month: selectedPeriodLabel })}
       </p>
 
       <DashboardAlerts error={error} success={success} />
@@ -222,6 +268,7 @@ export function BudgetPlanner() {
         <ExpenseFormSaveBar
           dirty={dirty}
           busy={busy}
+          readOnly={archiveYear}
           unsavedLabel={t('budget.unsaved')}
           savedLabel={t('budget.saved')}
           saveLabel={t('common.save')}
@@ -231,6 +278,7 @@ export function BudgetPlanner() {
             form={extraExpense}
             summary={cutSummary}
             busy={busy}
+            readOnly={archiveYear}
             locale={locale}
             currency={currency}
             onChange={setExtraExpense}
@@ -239,6 +287,7 @@ export function BudgetPlanner() {
             <BudgetCategoryForm
               amounts={amounts}
               busy={busy}
+              readOnly={archiveYear}
               categoriesTitle={t('budget.categoriesTitle')}
               amountLabel={t('budget.amountLabel')}
               totalLabel={t('budget.totalBudget')}
@@ -258,6 +307,7 @@ export function BudgetPlanner() {
             actualCents={actualCents}
             cutSummary={extraExpense.enabled ? cutSummary : undefined}
             loadingActual={loadingActual}
+            actualPeriodLabel={selectedPeriodLabel}
             locale={locale}
             currency={currency}
             t={t}

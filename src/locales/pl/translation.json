@@ -31,6 +31,15 @@
     "savingsGoals": "Wydatki długoterminowe",
     "settings": "Ustawienia"
   },
+  "calendarContext": {
+    "yearLabel": "Rok",
+    "yearHelpLabel": "Informacja o wyborze roku",
+    "yearHelp": "Przeglądaj rok kalendarzowy. Bieżący rok można edytować. Minione lata są tylko do odczytu. Lata, które jeszcze się nie rozpoczęły, są widoczne, ale nie można ich wybrać. Zmiana roku otwiera styczeń.",
+    "readOnlyBanner": "Przeglądasz {{year}} — tylko do odczytu.",
+    "historicalEmptyTitle": "Brak zapisanego podsumowania",
+    "historicalEmptyMessage": "Nie ma zapisanego podsumowania za {{month}}.",
+    "notCurrentPeriodReceipts": "Skanowanie paragonów jest dostępne tylko dla bieżącego miesiąca."
+  },
   "auth": {
     "signIn": "Zaloguj się",
     "signUp": "Utwórz konto",
@@ -354,6 +363,8 @@
     "title": "Zaplanuj budżet",
     "subtitle": "Ustal miesięczną kwotę dla każdej kategorii. Plan zostaje do czasu nadpisania, a wykresy porównują go z wydatkami w tym miesiącu.",
     "planningForNextMonth": "Planujesz budżet na następny miesiąc ({{month}}).",
+    "actualsForPeriod": "Rzeczywiste wydatki są pokazane za {{month}}.",
+    "readOnlyPastYear": "Tego planu budżetu nie można edytować, gdy wybrany jest miniony rok.",
     "unsaved": "Niezapisane zmiany budżetu",
     "saved": "Budżet zapisany",
     "loadError": "Nie udało się wczytać budżetu",
@@ -364,7 +375,7 @@
     "totalBudget": "Suma budżetu",
     "plannedAllocation": "Planowany podział budżetu",
     "plannedEmpty": "Podaj kwoty przy kategoriach, aby zobaczyć podział.",
-    "vsActual": "Budżet a wydatki (bieżący miesiąc)",
+    "vsActual": "Budżet a wydatki ({{month}})",
     "vsActualEmpty": "Brak planu lub wydatków do porównania.",
     "planned": "Plan",
     "actual": "Wydatki",

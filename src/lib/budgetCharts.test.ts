@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   actualCentsFromCurrentMonth,
+  actualCentsFromSummary,
   buildBudgetDonutData,
   buildBudgetVsActualData,
 } from './budgetCharts';
@@ -126,21 +127,17 @@ describe('buildBudgetVsActualData', () => {
   });
 });
 
-describe('actualCentsFromCurrentMonth', () => {
-  it('sums category items and folds unassigned into Other', () => {
+describe('actualCentsFromSummary', () => {
+  it('maps stored category totals for an ended month', () => {
     expect(
-      actualCentsFromCurrentMonth({
-        categories: [
-          {
-            key: 'Groceries',
-            items: [{ amount: '10.00' }, { amount: '5.50' }],
-          },
-        ],
-        unassigned: [{ amount: '2.00' }],
-      }),
+      actualCentsFromSummary([
+        { name: 'Groceries', totalCents: 12_500 },
+        { name: 'Transport', totalCents: 4_000 },
+        { name: 'NotACategory', totalCents: 99 },
+      ]),
     ).toEqual({
-      Groceries: 1550,
-      Other: 200,
+      Groceries: 12_500,
+      Transport: 4_000,
     });
   });
 });

@@ -9,6 +9,7 @@ type ManualSummaryFormProps = {
   savingsMessage: string;
   categories: CategoryFormState;
   busy: boolean;
+  readOnly?: boolean;
   submitLabel: string;
   salaryLabel: string;
   savingsMessageLabel: string;
@@ -35,6 +36,7 @@ export function ManualSummaryForm({
   savingsMessage,
   categories,
   busy,
+  readOnly = false,
   submitLabel,
   salaryLabel,
   savingsMessageLabel,
@@ -57,7 +59,13 @@ export function ManualSummaryForm({
   return (
     <form
       className="space-y-6 rounded-lg border bg-white p-6 shadow-sm"
-      onSubmit={onSubmit}
+      onSubmit={(event) => {
+        if (readOnly) {
+          event.preventDefault();
+          return;
+        }
+        onSubmit(event);
+      }}
     >
       <input type="hidden" name="period" value={period} />
 
@@ -69,6 +77,7 @@ export function ManualSummaryForm({
             inputMode="decimal"
             required
             value={salaryAmount}
+            disabled={readOnly}
             onChange={(event) => onSalaryAmountChange(event.target.value)}
             className="mt-1 w-full rounded-md border px-3 py-2"
             placeholder="10000.00"
@@ -78,6 +87,7 @@ export function ManualSummaryForm({
           {savingsMessageLabel}
           <textarea
             value={savingsMessage}
+            disabled={readOnly}
             onChange={(event) => onSavingsMessageChange(event.target.value)}
             rows={3}
             className="mt-1 w-full rounded-md border px-3 py-2"
@@ -88,6 +98,7 @@ export function ManualSummaryForm({
       <CategoryExpenseForm
         categories={categories}
         busy={busy}
+        readOnly={readOnly}
         autoTotalWhenItemsPresent
         categoriesTitle={categoriesTitle}
         categoryLabel={categoryLabel}
@@ -104,7 +115,7 @@ export function ManualSummaryForm({
       <div className="flex flex-wrap gap-3">
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || readOnly}
           className="rounded-md bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
         >
           {submitLabel}
@@ -112,7 +123,7 @@ export function ManualSummaryForm({
         {onCancel && cancelLabel && (
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || readOnly}
             onClick={onCancel}
             className="rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >

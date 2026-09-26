@@ -31,6 +31,15 @@
     "savingsGoals": "Long-term expenses",
     "settings": "Settings"
   },
+  "calendarContext": {
+    "yearLabel": "Year",
+    "yearHelpLabel": "About the year selector",
+    "yearHelp": "Browse a calendar year. The current year stays editable. Past years are read-only. Years that have not started are listed but cannot be selected. Changing the year opens January.",
+    "readOnlyBanner": "Viewing {{year}} — read only.",
+    "historicalEmptyTitle": "No saved summary",
+    "historicalEmptyMessage": "There is no saved summary for {{month}}.",
+    "notCurrentPeriodReceipts": "Receipt scanning is available only for the current month."
+  },
   "auth": {
     "signIn": "Sign in",
     "signUp": "Create account",
@@ -354,6 +363,8 @@
     "title": "Plan your budget",
     "subtitle": "Set a monthly amount for each category. The plan stays until you overwrite it, and charts compare it with this month’s spending.",
     "planningForNextMonth": "You are planning the budget for next month ({{month}}).",
+    "actualsForPeriod": "Actual spending is shown for {{month}}.",
+    "readOnlyPastYear": "This budget plan cannot be edited while a past year is selected.",
     "unsaved": "Unsaved budget changes",
     "saved": "Budget saved",
     "loadError": "Failed to load budget",
@@ -364,7 +375,7 @@
     "totalBudget": "Total budget",
     "plannedAllocation": "Planned budget allocation",
     "plannedEmpty": "Enter amounts for your categories to see the allocation.",
-    "vsActual": "Budget vs actual (current month)",
+    "vsActual": "Budget vs actual ({{month}})",
     "vsActualEmpty": "No planned or actual amounts to compare yet.",
     "planned": "Planned",
     "actual": "Actual",
