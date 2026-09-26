@@ -7,6 +7,15 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Sections are generated automatically by `.github/workflows/release.yml` on each push to `production`.
 
+## [0.0.21] - 2026-09-26
+
+### Features
+- browse financial screens by calendar year (#52)
+- docs architecture update
+
+### Other
+- [FE] Closure previous month
+
 ## [0.0.20] - 2026-09-02
 
 ### Features
