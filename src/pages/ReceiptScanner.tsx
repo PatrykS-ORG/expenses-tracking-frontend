@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ImagePlus, Save, ScanSearch } from 'lucide-react';
+import { ArchiveYearBanner } from '../components/ArchiveYearBanner';
+import { currentMonthInTimezone, toPeriod } from '../lib/period';
 import { useAuthStore } from '../store/useAuthStore';
+import { useCalendarContextStore } from '../store/useCalendarContextStore';
 import {
   approveReceiptExpenses,
   scanReceipt,
@@ -18,6 +21,15 @@ export function ReceiptScanner() {
   const navigate = useNavigate();
   const { session } = useAuthStore();
   const locale = i18n.resolvedLanguage ?? 'pl';
+  const selectedYear = useCalendarContextStore((state) => state.selectedYear);
+  const selectedMonth = useCalendarContextStore((state) => state.selectedMonth);
+  const calendarTimezone = useCalendarContextStore((state) => state.timezone);
+  const calendarReady = useCalendarContextStore((state) => state.initialized);
+  const isLivePeriod =
+    calendarReady &&
+    toPeriod(selectedYear, selectedMonth) ===
+      currentMonthInTimezone(calendarTimezone);
+  const periodLocked = !isLivePeriod;
   const [selectedReceiptFile, setSelectedReceiptFile] = useState<File | null>(
     null,
   );
@@ -60,7 +72,7 @@ export function ReceiptScanner() {
 
   const handleScanReceipt = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!session?.access_token || !selectedReceiptFile) {
+    if (!session?.access_token || !selectedReceiptFile || periodLocked) {
       return;
     }
 
@@ -95,6 +107,10 @@ export function ReceiptScanner() {
   ) => {
     event.preventDefault();
     if (!session?.access_token) {
+      return;
+    }
+    if (periodLocked) {
+      setError(t('calendarContext.notCurrentPeriodReceipts'));
       return;
     }
     if (monthClosure?.needsClosure) {
@@ -153,18 +169,28 @@ export function ReceiptScanner() {
             {success}
           </div>
         )}
-        {session?.access_token && monthClosure?.needsClosure && (
-          <MonthCloseBanner
-            token={session.access_token}
-            status={monthClosure}
-            locale={locale}
-            onClosed={() => {
-              void getMonthClosureStatus(session.access_token).then(
-                setMonthClosure,
-              );
-            }}
-          />
+        {calendarReady && !isLivePeriod && (
+          <div className="space-y-3">
+            <ArchiveYearBanner />
+            <p className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              {t('calendarContext.notCurrentPeriodReceipts')}
+            </p>
+          </div>
         )}
+        {session?.access_token &&
+          isLivePeriod &&
+          monthClosure?.needsClosure && (
+            <MonthCloseBanner
+              token={session.access_token}
+              status={monthClosure}
+              locale={locale}
+              onClosed={() => {
+                void getMonthClosureStatus(session.access_token).then(
+                  setMonthClosure,
+                );
+              }}
+            />
+          )}
 
         <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900">
@@ -186,11 +212,12 @@ export function ReceiptScanner() {
                   setError(null);
                   setSuccess(null);
                 }}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                disabled={periodLocked}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
               />
               <button
                 type="submit"
-                disabled={isScanning || !selectedReceiptFile}
+                disabled={periodLocked || isScanning || !selectedReceiptFile}
                 className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <ScanSearch className="h-4 w-4" />
@@ -233,7 +260,8 @@ export function ReceiptScanner() {
               onChange={(event) => setExtractedText(event.target.value)}
               rows={12}
               placeholder={t('receiptScanner.textareaPlaceholder')}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              disabled={periodLocked}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-50"
             />
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p
@@ -246,9 +274,10 @@ export function ReceiptScanner() {
               <button
                 type="submit"
                 disabled={
+                  periodLocked ||
                   isApproving ||
                   !extractedText.trim() ||
-                  Boolean(monthClosure?.needsClosure)
+                  Boolean(isLivePeriod && monthClosure?.needsClosure)
                 }
                 className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >

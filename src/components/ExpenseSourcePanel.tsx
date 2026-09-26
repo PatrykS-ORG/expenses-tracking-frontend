@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { ScanSearch, Upload } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ArchiveYearBanner } from './ArchiveYearBanner';
 import { CategoryExpenseForm } from './analytics/CategoryExpenseForm';
+import { SummaryDetailPanel } from './analytics/SummaryDetailPanel';
 import { CategorySuggestionsModal } from './analytics/CategorySuggestionsModal';
 import { ExpenseFormSaveBar } from './analytics/ExpenseFormSaveBar';
 import {
@@ -14,6 +16,11 @@ import {
   type UnassignedExpenseItem,
 } from './analytics/manualSummaryFormState';
 import { featureFlags } from '../lib/featureFlags';
+import {
+  currentMonthInTimezone,
+  formatPeriodLabel,
+  toPeriod,
+} from '../lib/period';
 import { centsToAmountString } from '../lib/money';
 import {
   getCurrentMonthExpenses,
@@ -26,8 +33,13 @@ import {
   type DataSourceType,
   type ExpenseCategorySuggestion,
 } from '../services/onboarding.service';
+import { getMySummary } from '../services/analytics.service';
 import { getMonthClosureStatus } from '../services/monthClose.service';
-import type { SummaryCategoryKey } from '../types/analytics.types';
+import { useCalendarContextStore } from '../store/useCalendarContextStore';
+import type {
+  SummaryAnalytics,
+  SummaryCategoryKey,
+} from '../types/analytics.types';
 import type { MonthClosureStatus } from '../types/monthClose.types';
 import { useAuthStore } from '../store/useAuthStore';
 import { runWithBlockingLoader } from '../store/useBlockingLoaderStore';
@@ -38,6 +50,17 @@ export function ExpenseSourcePanel() {
   const { t, i18n } = useTranslation();
   const token = useAuthStore((state) => state.session?.access_token);
   const locale = i18n.resolvedLanguage ?? 'pl';
+  const selectedYear = useCalendarContextStore((state) => state.selectedYear);
+  const selectedMonth = useCalendarContextStore((state) => state.selectedMonth);
+  const calendarTimezone = useCalendarContextStore((state) => state.timezone);
+  const calendarReady = useCalendarContextStore((state) => state.initialized);
+  const selectedPeriod = toPeriod(selectedYear, selectedMonth);
+  const isLivePeriod =
+    calendarReady &&
+    selectedPeriod === currentMonthInTimezone(calendarTimezone);
+  const [historicalSummary, setHistoricalSummary] =
+    useState<SummaryAnalytics | null>(null);
+  const [historicalLoading, setHistoricalLoading] = useState(false);
   const [dataSourceType, setDataSourceType] =
     useState<DataSourceType>('FILE_UPLOAD');
   const [nextcloudPath, setNextcloudPath] = useState('');
@@ -126,6 +149,36 @@ export function ExpenseSourcePanel() {
   }, [applyExpenses, refreshDashboardMeta, token]);
 
   useEffect(() => {
+    if (!token || !calendarReady || isLivePeriod) {
+      setHistoricalSummary(null);
+      setHistoricalLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setHistoricalLoading(true);
+    setError(null);
+    void getMySummary(token, selectedPeriod, controller.signal)
+      .then((summary) => {
+        if (!controller.signal.aborted) setHistoricalSummary(summary);
+      })
+      .catch((loadError: unknown) => {
+        if (controller.signal.aborted) return;
+        setHistoricalSummary(null);
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : t('analytics.loadError'),
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setHistoricalLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [calendarReady, isLivePeriod, selectedPeriod, t, token]);
+
+  useEffect(() => {
     void load().catch((loadError) =>
       setError(
         loadError instanceof Error
@@ -211,6 +264,68 @@ export function ExpenseSourcePanel() {
   const salaryDirty = salaryAmount.trim() !== savedSalaryAmount.trim();
   const expensesDirty = snapshotKey(categories, unassigned) !== savedSnapshot;
   useUnsavedChangesWarning(salaryDirty || expensesDirty);
+
+  if (!calendarReady || (!isLivePeriod && historicalLoading)) {
+    return (
+      <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-center py-10">
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600" />
+        </div>
+      </section>
+    );
+  }
+
+  if (!isLivePeriod) {
+    return (
+      <section
+        id="expense-source"
+        className="mt-6 space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
+      >
+        <ArchiveYearBanner />
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {t('dashboard.dataSourceTitle')}
+          </h2>
+          <p className="mt-1 text-sm text-gray-600">
+            {formatPeriodLabel(selectedPeriod, locale)}
+          </p>
+        </div>
+        {error && (
+          <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+        {historicalSummary ? (
+          <SummaryDetailPanel
+            summary={historicalSummary}
+            locale={locale}
+            sourceLabel={t('analytics.sourceLabel')}
+            sourceManualLabel={t('analytics.sourceManual')}
+            sourceScheduledLabel={t('analytics.sourceScheduled')}
+            incomeLabel={t('analytics.incomeLabel')}
+            expensesLabel={t('analytics.expensesLabel')}
+            investedLabel={t('analytics.investedLabel')}
+            savingsLabel={t('analytics.savingsLabel')}
+            narrativeLabel={t('analytics.narrativeLabel')}
+            categoriesTitle={t('analytics.categoriesTitle')}
+            categoryLabel={categoryLabel}
+            lineItemsLabel={t('analytics.lineItemsLabel')}
+          />
+        ) : (
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">
+              {t('calendarContext.historicalEmptyTitle')}
+            </h3>
+            <p className="mt-2 text-sm text-gray-600">
+              {t('calendarContext.historicalEmptyMessage', {
+                month: formatPeriodLabel(selectedPeriod, locale),
+              })}
+            </p>
+          </div>
+        )}
+      </section>
+    );
+  }
 
   return (
     <section

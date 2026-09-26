@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   ChartLine,
@@ -9,7 +10,11 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { browserTimezone } from '../lib/period';
+import { getSummarySchedule } from '../services/onboarding.service';
 import { useAuthStore } from '../store/useAuthStore';
+import { useCalendarContextStore } from '../store/useCalendarContextStore';
+import { CalendarYearSelect } from './CalendarYearSelect';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { SpendwellLogo } from './SpendwellLogo';
 
@@ -22,7 +27,34 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 
 export function AppLayout() {
   const { t } = useTranslation();
-  const { user, signOut } = useAuthStore();
+  const { user, session, signOut } = useAuthStore();
+  const token = session?.access_token;
+  const initializeCalendar = useCalendarContextStore(
+    (state) => state.initialize,
+  );
+  const resetCalendar = useCalendarContextStore((state) => state.reset);
+
+  useEffect(() => {
+    if (!token) {
+      resetCalendar();
+      return;
+    }
+
+    const controller = new AbortController();
+    void getSummarySchedule(token, controller.signal)
+      .then((schedule) => {
+        if (!controller.signal.aborted) {
+          initializeCalendar(schedule.timezone);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          initializeCalendar(browserTimezone());
+        }
+      });
+
+    return () => controller.abort();
+  }, [initializeCalendar, resetCalendar, token]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -36,6 +68,7 @@ export function AppLayout() {
             <SpendwellLogo size="md" inheritBackground />
           </NavLink>
           <div className="ml-auto flex shrink-0 items-center gap-3 xl:order-last xl:ml-0">
+            <CalendarYearSelect />
             <LanguageSwitcher />
             <span className="hidden max-w-48 truncate text-sm text-gray-500 xl:block">
               {user?.email}

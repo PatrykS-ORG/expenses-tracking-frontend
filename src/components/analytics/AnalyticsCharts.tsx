@@ -35,6 +35,8 @@ type AnalyticsChartsProps = {
   summaries: SummaryAnalytics[];
   selectedSummary: SummaryAnalytics | null;
   selectedPeriod: string;
+  /** First month included in year-scoped charts. Defaults to 2026-01. */
+  fromPeriod?: string;
   /** Last ended calendar month (previous month in user TZ). */
   throughPeriod: string;
   loadingMonth?: boolean;
@@ -109,6 +111,7 @@ export function AnalyticsCharts({
   summaries,
   selectedSummary,
   selectedPeriod,
+  fromPeriod = EARLIEST_PERIOD,
   throughPeriod,
   loadingMonth = false,
   locale,
@@ -129,10 +132,10 @@ export function AnalyticsCharts({
   }
 
   const momData = buildMomChartData(summaries, locale, {
-    fromPeriod: EARLIEST_PERIOD,
+    fromPeriod,
     throughPeriod,
   });
-  const ytdRange = { fromPeriod: EARLIEST_PERIOD, throughPeriod };
+  const ytdRange = { fromPeriod, throughPeriod };
   const ytd = buildYtdSavesVsSpent(summaries, ytdRange);
   const mostExpensive = findMostExpensiveExpense(summaries, ytdRange);
   const monthlySavingsData = buildMonthlySavingsChartData(
@@ -154,7 +157,7 @@ export function AnalyticsCharts({
     range: formatMomRangeCaption(monthlySavingsData, locale),
   });
   const ytdCaption = t('analytics.chartsYtdCaption', {
-    from: formatPeriodLabel(EARLIEST_PERIOD, locale),
+    from: formatPeriodLabel(fromPeriod, locale),
     through: formatPeriodLabel(throughPeriod, locale),
   });
   const mostExpensiveCaption = mostExpensive
