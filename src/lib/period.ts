@@ -1,9 +1,4 @@
-/**
- * Utilities for working with `YYYY-MM` period strings in a specific
- * timezone. The analytics feature relies on the user's summary timezone to
- * decide which months are "ended" and which one is the currently-running
- * calendar month.
- */
+import { getTestNowDate } from './testNow';
 
 export function browserTimezone(): string {
   try {
@@ -17,13 +12,16 @@ export function toPeriod(year: number, monthOneBased: number): string {
   return `${String(year).padStart(4, '0')}-${String(monthOneBased).padStart(2, '0')}`;
 }
 
-export function currentMonthInTimezone(tz: string): string {
+export function currentMonthInTimezone(
+  tz: string,
+  now: Date = getTestNowDate(),
+): string {
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: tz,
     year: 'numeric',
     month: '2-digit',
   });
-  const parts = formatter.formatToParts(new Date());
+  const parts = formatter.formatToParts(now);
   const year = Number(parts.find((p) => p.type === 'year')?.value ?? '0');
   const month = Number(parts.find((p) => p.type === 'month')?.value ?? '0');
   return toPeriod(year, month);
@@ -55,7 +53,85 @@ export function comparePeriods(a: string, b: string): number {
 }
 
 /** Earliest YYYY-MM shown / accepted on the analytics page. */
-export const EARLIEST_PERIOD = '2026-01';
+export const EARLIEST_PERIOD = '2025-01';
+
+export const EARLIEST_CALENDAR_YEAR = 2025;
+export const LATEST_CALENDAR_YEAR = 2056;
+export const LATEST_PERIOD = '2056-12';
+
+export function parsePeriod(
+  period: string,
+): { year: number; month: number } | null {
+  const [yearText, monthText] = period.split('-');
+  const year = Number(yearText);
+  const month = Number(monthText);
+  if (!Number.isInteger(year) || !Number.isInteger(month)) return null;
+  if (month < 1 || month > 12) return null;
+  return { year, month };
+}
+
+export function currentYearMonth(
+  timezone: string,
+  now: Date = getTestNowDate(),
+): { year: number; month: number } {
+  const parsed = parsePeriod(currentMonthInTimezone(timezone, now));
+  return parsed ?? { year: EARLIEST_CALENDAR_YEAR, month: 1 };
+}
+
+export function listCalendarYears(
+  earliest = EARLIEST_CALENDAR_YEAR,
+  latest = LATEST_CALENDAR_YEAR,
+): number[] {
+  const years: number[] = [];
+  for (let year = earliest; year <= latest; year += 1) {
+    years.push(year);
+  }
+  return years;
+}
+
+export function listMonthsInYear(): number[] {
+  return Array.from({ length: 12 }, (_, index) => index + 1);
+}
+
+export function isCalendarYearInRange(year: number): boolean {
+  return (
+    Number.isInteger(year) &&
+    year >= EARLIEST_CALENDAR_YEAR &&
+    year <= LATEST_CALENDAR_YEAR
+  );
+}
+
+export function isFutureYear(year: number, currentYear: number): boolean {
+  return year > currentYear;
+}
+
+export function isPastYear(year: number, currentYear: number): boolean {
+  return year < currentYear;
+}
+
+export function isSelectableYear(year: number, currentYear: number): boolean {
+  return isCalendarYearInRange(year) && year <= currentYear;
+}
+
+export function isSelectableMonth(
+  year: number,
+  month: number,
+  currentYear: number,
+  currentMonth: number,
+): boolean {
+  if (!isSelectableYear(year, currentYear)) return false;
+  if (!Number.isInteger(month) || month < 1 || month > 12) return false;
+  if (year < currentYear) return true;
+  return month <= currentMonth;
+}
+
+export function yearStartPeriod(year: number): string {
+  return toPeriod(year, 1);
+}
+
+export function yearEndPeriod(year: number): string {
+  return toPeriod(year, 12);
+}
 
 export function listEndedPeriods(currentPeriod: string, count = 24): string[] {
   const out: string[] = [];

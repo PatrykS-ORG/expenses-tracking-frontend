@@ -15,6 +15,7 @@ Implemented frontend scope:
 - Settings page (`/settings`): account, summary schedule, AI usage credits/audit
 - Budget planner (`/budget`): reusable monthly category amounts + planned vs actual charts
 - Long-term expenses (`/savings-goals`): named savings events with progress
+- Month close wizard when leftover cash from the previous month is positive
 - Test-email trigger via GraphQL
 
 ## Prerequisites

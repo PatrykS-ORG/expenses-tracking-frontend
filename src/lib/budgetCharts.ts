@@ -120,6 +120,21 @@ export function buildBudgetVsActualData(
   });
 }
 
+export function actualCentsFromSummary(
+  categories: Array<{ name: string; totalCents: number }>,
+): Partial<Record<SummaryCategoryKey, number>> {
+  const actual: Partial<Record<SummaryCategoryKey, number>> = {};
+  for (const category of categories) {
+    if (
+      !CANONICAL_CATEGORY_KEYS.includes(category.name as SummaryCategoryKey)
+    ) {
+      continue;
+    }
+    actual[category.name as SummaryCategoryKey] = category.totalCents;
+  }
+  return actual;
+}
+
 export function actualCentsFromCurrentMonth(payload: {
   categories: Array<{ key: string; items: Array<{ amount: string }> }>;
   unassigned: Array<{ amount: string }>;

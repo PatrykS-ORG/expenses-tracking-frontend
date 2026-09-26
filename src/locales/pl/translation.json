@@ -31,6 +31,15 @@
     "savingsGoals": "Wydatki długoterminowe",
     "settings": "Ustawienia"
   },
+  "calendarContext": {
+    "yearLabel": "Rok",
+    "yearHelpLabel": "Informacja o wyborze roku",
+    "yearHelp": "Przeglądaj rok kalendarzowy. Bieżący rok można edytować. Minione lata są tylko do odczytu. Lata, które jeszcze się nie rozpoczęły, są widoczne, ale nie można ich wybrać. Zmiana roku otwiera styczeń.",
+    "readOnlyBanner": "Przeglądasz {{year}} — tylko do odczytu.",
+    "historicalEmptyTitle": "Brak zapisanego podsumowania",
+    "historicalEmptyMessage": "Nie ma zapisanego podsumowania za {{month}}.",
+    "notCurrentPeriodReceipts": "Skanowanie paragonów jest dostępne tylko dla bieżącego miesiąca."
+  },
   "auth": {
     "signIn": "Zaloguj się",
     "signUp": "Utwórz konto",
@@ -354,6 +363,8 @@
     "title": "Zaplanuj budżet",
     "subtitle": "Ustal miesięczną kwotę dla każdej kategorii. Plan zostaje do czasu nadpisania, a wykresy porównują go z wydatkami w tym miesiącu.",
     "planningForNextMonth": "Planujesz budżet na następny miesiąc ({{month}}).",
+    "actualsForPeriod": "Rzeczywiste wydatki są pokazane za {{month}}.",
+    "readOnlyPastYear": "Tego planu budżetu nie można edytować, gdy wybrany jest miniony rok.",
     "unsaved": "Niezapisane zmiany budżetu",
     "saved": "Budżet zapisany",
     "loadError": "Nie udało się wczytać budżetu",
@@ -364,7 +375,7 @@
     "totalBudget": "Suma budżetu",
     "plannedAllocation": "Planowany podział budżetu",
     "plannedEmpty": "Podaj kwoty przy kategoriach, aby zobaczyć podział.",
-    "vsActual": "Budżet a wydatki (bieżący miesiąc)",
+    "vsActual": "Budżet a wydatki ({{month}})",
     "vsActualEmpty": "Brak planu lub wydatków do porównania.",
     "planned": "Plan",
     "actual": "Wydatki",
@@ -426,5 +437,31 @@
     "createSuccess": "Zapisano.",
     "updateSuccess": "Zaktualizowano.",
     "deleteSuccess": "Usunięto."
+  },
+  "monthClose": {
+    "bannerTitle": "Domknij {{month}} zanim dodasz nowe wydatki",
+    "bannerBody": "Pozostało: {{amount}}. Przydziel całą kwotę na sub-cele długoterminowe, żeby odblokować nowy miesiąc.",
+    "openWizard": "Rozdysponuj nadwyżkę",
+    "blockedHint": "Najpierw domknij poprzedni miesiąc, zanim dodasz nowe wydatki albo zatwierdzisz paragony.",
+    "wizardTitle": "Domknięcie {{month}}",
+    "wizardSubtitle": "Wybierz wydarzenie, potem sub-cel i przydziel nadwyżkę, aż nic nie zostanie.",
+    "remaining": "Pozostało do rozdysponowania: {{amount}}",
+    "amountLabel": "Kwota",
+    "addAllocation": "Dodaj przydział",
+    "closeButton": "Zamknij miesiąc",
+    "closeError": "Nie udało się domknąć miesiąca. Spróbuj ponownie.",
+    "invalidAmount": "Podaj dodatnią kwotę, która nie przekracza pozostałej sumy.",
+    "overshootWarning": "Ta kwota przekracza to, czego jeszcze brakuje do celu. Możesz ją mimo to dodać.",
+    "currencyMismatchHint": "To wydarzenie jest w innej walucie niż {{currency}}.",
+    "noCompatibleEvents": "Najpierw utwórz wydarzenie w walucie {{currency}}, a potem dodaj sub-cel.",
+    "noSubGoals": "Dodaj sub-cel do tego wydarzenia, zanim przydzielisz kwotę.",
+    "errors": {
+      "MONTH_NOT_CLOSED": "Domknij poprzedni miesiąc, zanim dodasz nowe wydatki.",
+      "AMOUNT_MISMATCH": "Suma przydziałów musi być równa pozostałej kwocie.",
+      "CURRENCY_MISMATCH": "Ten sub-cel jest w innej walucie niż podsumowanie.",
+      "PERIOD_MISMATCH": "To żądanie dotyczy innego miesiąca.",
+      "ALREADY_CLOSED": "Ten miesiąc jest już domknięty.",
+      "EMPTY_ALLOCATIONS": "Dodaj przynajmniej jeden przydział."
+    }
   }
 }

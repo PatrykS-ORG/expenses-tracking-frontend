@@ -1,6 +1,7 @@
 type ExpenseFormSaveBarProps = {
   dirty: boolean;
   busy?: boolean;
+  readOnly?: boolean;
   unsavedLabel: string;
   savedLabel: string;
   saveLabel: string;
@@ -10,6 +11,7 @@ type ExpenseFormSaveBarProps = {
 export function ExpenseFormSaveBar({
   dirty,
   busy = false,
+  readOnly = false,
   unsavedLabel,
   savedLabel,
   saveLabel,
@@ -21,7 +23,7 @@ export function ExpenseFormSaveBar({
       </p>
       <button
         type="submit"
-        disabled={busy || !dirty}
+        disabled={readOnly || busy || !dirty}
         className="rounded-md bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
       >
         {saveLabel}

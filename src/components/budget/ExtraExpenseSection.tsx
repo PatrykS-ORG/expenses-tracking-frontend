@@ -11,6 +11,7 @@ type ExtraExpenseSectionProps = {
   form: ExtraExpenseForm;
   summary: ExtraExpenseCutSummary;
   busy?: boolean;
+  readOnly?: boolean;
   locale: string;
   currency: string;
   onChange: (form: ExtraExpenseForm) => void;
@@ -30,11 +31,13 @@ export function ExtraExpenseSection({
   form,
   summary,
   busy = false,
+  readOnly = false,
   locale,
   currency,
   onChange,
 }: ExtraExpenseSectionProps) {
   const { t } = useTranslation();
+  const locked = busy || readOnly;
   const { totalSavedCents, targetCents } = summary;
   const coveragePercent =
     targetCents > 0
@@ -49,7 +52,7 @@ export function ExtraExpenseSection({
       <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <button
           type="button"
-          disabled={busy}
+          disabled={locked}
           onClick={() =>
             onChange({ ...emptyExtraExpenseForm(), enabled: true })
           }
@@ -95,7 +98,7 @@ export function ExtraExpenseSection({
             required
             maxLength={100}
             value={form.name}
-            disabled={busy}
+            disabled={locked}
             onChange={(event) =>
               onChange({ ...form, name: event.target.value })
             }
@@ -110,7 +113,7 @@ export function ExtraExpenseSection({
             inputMode="decimal"
             required
             value={form.amount}
-            disabled={busy}
+            disabled={locked}
             onChange={(event) =>
               onChange({ ...form, amount: event.target.value })
             }
@@ -143,7 +146,7 @@ export function ExtraExpenseSection({
       <div className="mt-4 flex justify-center">
         <button
           type="button"
-          disabled={busy}
+          disabled={locked}
           onClick={() => onChange(emptyExtraExpenseForm())}
           className="text-sm font-medium text-red-700 hover:text-red-800 disabled:opacity-50"
         >

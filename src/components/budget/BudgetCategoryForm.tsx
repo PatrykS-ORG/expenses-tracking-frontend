@@ -11,6 +11,7 @@ import type {
 type BudgetCategoryFormProps = {
   amounts: BudgetFormAmounts;
   busy?: boolean;
+  readOnly?: boolean;
   categoriesTitle: string;
   amountLabel: string;
   totalLabel: string;
@@ -28,6 +29,7 @@ type BudgetCategoryFormProps = {
 export function BudgetCategoryForm({
   amounts,
   busy = false,
+  readOnly = false,
   categoriesTitle,
   amountLabel,
   totalLabel,
@@ -41,6 +43,7 @@ export function BudgetCategoryForm({
   onChange,
   onExtraExpenseChange,
 }: BudgetCategoryFormProps) {
+  const locked = busy || readOnly;
   const extraExpenseEnabled = Boolean(extraExpense?.enabled);
   const totalCents = CANONICAL_CATEGORY_KEYS.reduce(
     (sum, key) => sum + amountStringToCents(amounts[key] ?? ''),
@@ -72,7 +75,7 @@ export function BudgetCategoryForm({
       </div>
       {CANONICAL_CATEGORY_KEYS.map((key) => {
         const plannedCents = amountStringToCents(amounts[key] ?? '');
-        const cutDisabled = busy || plannedCents <= 0;
+        const cutDisabled = locked || plannedCents <= 0;
         const savedCents = cutSummary?.savedByCategory[key] ?? 0;
 
         return (
@@ -92,7 +95,7 @@ export function BudgetCategoryForm({
                     type="text"
                     inputMode="decimal"
                     value={amounts[key] ?? ''}
-                    disabled={busy}
+                    disabled={locked}
                     onChange={(event) => updateAmount(key, event.target.value)}
                     className="mt-1 w-full rounded-md border px-3 py-2 disabled:bg-gray-50"
                     placeholder="0.00"

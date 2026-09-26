@@ -31,6 +31,15 @@
     "savingsGoals": "Long-term expenses",
     "settings": "Settings"
   },
+  "calendarContext": {
+    "yearLabel": "Year",
+    "yearHelpLabel": "About the year selector",
+    "yearHelp": "Browse a calendar year. The current year stays editable. Past years are read-only. Years that have not started are listed but cannot be selected. Changing the year opens January.",
+    "readOnlyBanner": "Viewing {{year}} — read only.",
+    "historicalEmptyTitle": "No saved summary",
+    "historicalEmptyMessage": "There is no saved summary for {{month}}.",
+    "notCurrentPeriodReceipts": "Receipt scanning is available only for the current month."
+  },
   "auth": {
     "signIn": "Sign in",
     "signUp": "Create account",
@@ -354,6 +363,8 @@
     "title": "Plan your budget",
     "subtitle": "Set a monthly amount for each category. The plan stays until you overwrite it, and charts compare it with this month’s spending.",
     "planningForNextMonth": "You are planning the budget for next month ({{month}}).",
+    "actualsForPeriod": "Actual spending is shown for {{month}}.",
+    "readOnlyPastYear": "This budget plan cannot be edited while a past year is selected.",
     "unsaved": "Unsaved budget changes",
     "saved": "Budget saved",
     "loadError": "Failed to load budget",
@@ -364,7 +375,7 @@
     "totalBudget": "Total budget",
     "plannedAllocation": "Planned budget allocation",
     "plannedEmpty": "Enter amounts for your categories to see the allocation.",
-    "vsActual": "Budget vs actual (current month)",
+    "vsActual": "Budget vs actual ({{month}})",
     "vsActualEmpty": "No planned or actual amounts to compare yet.",
     "planned": "Planned",
     "actual": "Actual",
@@ -426,5 +437,31 @@
     "createSuccess": "Saved.",
     "updateSuccess": "Updated.",
     "deleteSuccess": "Deleted."
+  },
+  "monthClose": {
+    "bannerTitle": "Close {{month}} before adding new expenses",
+    "bannerBody": "Leftover cash: {{amount}}. Allocate all of it to long-term sub-goals to unlock the new month.",
+    "openWizard": "Allocate leftover",
+    "blockedHint": "Finish closing the previous month before adding new expenses or approving receipts.",
+    "wizardTitle": "Close {{month}}",
+    "wizardSubtitle": "Choose an event, then a sub-goal, and allocate the leftover until nothing remains.",
+    "remaining": "Left to allocate: {{amount}}",
+    "amountLabel": "Amount",
+    "addAllocation": "Add allocation",
+    "closeButton": "Close month",
+    "closeError": "Could not close the month. Try again.",
+    "invalidAmount": "Enter a positive amount that does not exceed what is left to allocate.",
+    "overshootWarning": "This amount is more than the sub-goal still needs. You can still add it.",
+    "currencyMismatchHint": "This event uses a different currency than {{currency}}.",
+    "noCompatibleEvents": "Create an event in {{currency}} first, then add a sub-goal.",
+    "noSubGoals": "Add a sub-goal to this event before allocating.",
+    "errors": {
+      "MONTH_NOT_CLOSED": "Close the previous month before adding new expenses.",
+      "AMOUNT_MISMATCH": "Allocated amounts must add up to the leftover cash.",
+      "CURRENCY_MISMATCH": "That sub-goal is in a different currency than your summary.",
+      "PERIOD_MISMATCH": "This close request is for a different month.",
+      "ALREADY_CLOSED": "This month is already closed.",
+      "EMPTY_ALLOCATIONS": "Add at least one allocation."
+    }
   }
 }

@@ -4,6 +4,7 @@ import type {
   SummaryCategoryKey,
   UpdateManualSummaryInput,
 } from '../types/analytics.types';
+import { graphqlHeaders } from '../lib/graphqlHeaders';
 
 interface GraphQLError {
   message?: string;
@@ -48,10 +49,7 @@ async function graphqlRequest<TData>(
 ): Promise<TData> {
   const res = await fetch(GRAPHQL_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: graphqlHeaders(accessToken),
     body: JSON.stringify({ query, variables }),
     signal,
   });
@@ -76,18 +74,19 @@ async function graphqlRequest<TData>(
 
 export async function getMySummaries(
   accessToken: string,
+  year: number,
   signal?: AbortSignal,
 ): Promise<SummaryAnalytics[]> {
   const data = await graphqlRequest<{ mySummaries?: SummaryAnalytics[] }>(
     accessToken,
     `
-      query MySummaries {
-        mySummaries {
+      query MySummaries($year: Int!) {
+        mySummaries(year: $year) {
           ${SUMMARY_FIELDS}
         }
       }
     `,
-    undefined,
+    { year },
     signal,
   );
   return data.mySummaries ?? [];

@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { ScanSearch, Upload } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ArchiveYearBanner } from './ArchiveYearBanner';
 import { CategoryExpenseForm } from './analytics/CategoryExpenseForm';
+import { SummaryDetailPanel } from './analytics/SummaryDetailPanel';
 import { CategorySuggestionsModal } from './analytics/CategorySuggestionsModal';
 import { ExpenseFormSaveBar } from './analytics/ExpenseFormSaveBar';
 import {
@@ -14,6 +16,11 @@ import {
   type UnassignedExpenseItem,
 } from './analytics/manualSummaryFormState';
 import { featureFlags } from '../lib/featureFlags';
+import {
+  currentMonthInTimezone,
+  formatPeriodLabel,
+  toPeriod,
+} from '../lib/period';
 import { centsToAmountString } from '../lib/money';
 import {
   getCurrentMonthExpenses,
@@ -26,14 +33,34 @@ import {
   type DataSourceType,
   type ExpenseCategorySuggestion,
 } from '../services/onboarding.service';
-import type { SummaryCategoryKey } from '../types/analytics.types';
+import { getMySummary } from '../services/analytics.service';
+import { getMonthClosureStatus } from '../services/monthClose.service';
+import { useCalendarContextStore } from '../store/useCalendarContextStore';
+import type {
+  SummaryAnalytics,
+  SummaryCategoryKey,
+} from '../types/analytics.types';
+import type { MonthClosureStatus } from '../types/monthClose.types';
 import { useAuthStore } from '../store/useAuthStore';
 import { runWithBlockingLoader } from '../store/useBlockingLoaderStore';
 import { useUnsavedChangesWarning } from '../store/useUnsavedChangesStore';
+import { MonthCloseBanner } from './savings/MonthCloseBanner';
 
 export function ExpenseSourcePanel() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const token = useAuthStore((state) => state.session?.access_token);
+  const locale = i18n.resolvedLanguage ?? 'pl';
+  const selectedYear = useCalendarContextStore((state) => state.selectedYear);
+  const selectedMonth = useCalendarContextStore((state) => state.selectedMonth);
+  const calendarTimezone = useCalendarContextStore((state) => state.timezone);
+  const calendarReady = useCalendarContextStore((state) => state.initialized);
+  const selectedPeriod = toPeriod(selectedYear, selectedMonth);
+  const isLivePeriod =
+    calendarReady &&
+    selectedPeriod === currentMonthInTimezone(calendarTimezone);
+  const [historicalSummary, setHistoricalSummary] =
+    useState<SummaryAnalytics | null>(null);
+  const [historicalLoading, setHistoricalLoading] = useState(false);
   const [dataSourceType, setDataSourceType] =
     useState<DataSourceType>('FILE_UPLOAD');
   const [nextcloudPath, setNextcloudPath] = useState('');
@@ -54,6 +81,9 @@ export function ExpenseSourcePanel() {
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [monthClosure, setMonthClosure] = useState<MonthClosureStatus | null>(
+    null,
+  );
 
   const categoryLabel = useCallback(
     (key: SummaryCategoryKey) => t(`analytics.categories.${key}`),
@@ -109,10 +139,44 @@ export function ExpenseSourcePanel() {
 
   const load = useCallback(async () => {
     if (!token) return;
-    await refreshDashboardMeta();
-    const expenses = await getCurrentMonthExpenses(token);
+    const [, expenses, closure] = await Promise.all([
+      refreshDashboardMeta(),
+      getCurrentMonthExpenses(token),
+      getMonthClosureStatus(token),
+    ]);
     applyExpenses(expenses);
+    setMonthClosure(closure);
   }, [applyExpenses, refreshDashboardMeta, token]);
+
+  useEffect(() => {
+    if (!token || !calendarReady || isLivePeriod) {
+      setHistoricalSummary(null);
+      setHistoricalLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setHistoricalLoading(true);
+    setError(null);
+    void getMySummary(token, selectedPeriod, controller.signal)
+      .then((summary) => {
+        if (!controller.signal.aborted) setHistoricalSummary(summary);
+      })
+      .catch((loadError: unknown) => {
+        if (controller.signal.aborted) return;
+        setHistoricalSummary(null);
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : t('analytics.loadError'),
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setHistoricalLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [calendarReady, isLivePeriod, selectedPeriod, t, token]);
 
   useEffect(() => {
     void load().catch((loadError) =>
@@ -201,6 +265,68 @@ export function ExpenseSourcePanel() {
   const expensesDirty = snapshotKey(categories, unassigned) !== savedSnapshot;
   useUnsavedChangesWarning(salaryDirty || expensesDirty);
 
+  if (!calendarReady || (!isLivePeriod && historicalLoading)) {
+    return (
+      <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-center py-10">
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600" />
+        </div>
+      </section>
+    );
+  }
+
+  if (!isLivePeriod) {
+    return (
+      <section
+        id="expense-source"
+        className="mt-6 space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
+      >
+        <ArchiveYearBanner />
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {t('dashboard.dataSourceTitle')}
+          </h2>
+          <p className="mt-1 text-sm text-gray-600">
+            {formatPeriodLabel(selectedPeriod, locale)}
+          </p>
+        </div>
+        {error && (
+          <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+        {historicalSummary ? (
+          <SummaryDetailPanel
+            summary={historicalSummary}
+            locale={locale}
+            sourceLabel={t('analytics.sourceLabel')}
+            sourceManualLabel={t('analytics.sourceManual')}
+            sourceScheduledLabel={t('analytics.sourceScheduled')}
+            incomeLabel={t('analytics.incomeLabel')}
+            expensesLabel={t('analytics.expensesLabel')}
+            investedLabel={t('analytics.investedLabel')}
+            savingsLabel={t('analytics.savingsLabel')}
+            narrativeLabel={t('analytics.narrativeLabel')}
+            categoriesTitle={t('analytics.categoriesTitle')}
+            categoryLabel={categoryLabel}
+            lineItemsLabel={t('analytics.lineItemsLabel')}
+          />
+        ) : (
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">
+              {t('calendarContext.historicalEmptyTitle')}
+            </h3>
+            <p className="mt-2 text-sm text-gray-600">
+              {t('calendarContext.historicalEmptyMessage', {
+                month: formatPeriodLabel(selectedPeriod, locale),
+              })}
+            </p>
+          </div>
+        )}
+      </section>
+    );
+  }
+
   return (
     <section
       id="expense-source"
@@ -219,7 +345,9 @@ export function ExpenseSourcePanel() {
         </div>
         <Link
           to="/receipt-scan"
-          className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
+          className={`inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 ${
+            monthClosure?.needsClosure ? 'pointer-events-none opacity-50' : ''
+          }`}
         >
           <ScanSearch className="h-4 w-4" />
           {t('dashboard.scanReceipt')}
@@ -239,6 +367,18 @@ export function ExpenseSourcePanel() {
       {salaryMissing && (
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           {t('dashboard.salaryMissingWarning')}
+        </div>
+      )}
+      {token && monthClosure?.needsClosure && (
+        <div className="mt-4">
+          <MonthCloseBanner
+            token={token}
+            status={monthClosure}
+            locale={locale}
+            onClosed={() => {
+              void load();
+            }}
+          />
         </div>
       )}
 
@@ -319,6 +459,10 @@ export function ExpenseSourcePanel() {
             {t('common.save')}
           </button>
         </form>
+      ) : monthClosure?.needsClosure ? (
+        <p className="mt-4 text-sm text-gray-600">
+          {t('monthClose.blockedHint')}
+        </p>
       ) : (
         <div className="mt-4 space-y-3">
           <form

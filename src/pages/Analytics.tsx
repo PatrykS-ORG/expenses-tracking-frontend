@@ -2,6 +2,7 @@ import type { FormEvent } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CalendarDays } from 'lucide-react';
+import { ArchiveYearBanner } from '../components/ArchiveYearBanner';
 import { DashboardAlerts } from '../components/DashboardAlerts';
 import { AnalyticsCharts } from '../components/analytics/AnalyticsCharts';
 import { CategoryExpenseForm } from '../components/analytics/CategoryExpenseForm';
@@ -21,11 +22,18 @@ import {
 import { SummaryDetailPanel } from '../components/analytics/SummaryDetailPanel';
 import { buildLiveSummaryFromCategories } from '../lib/analyticsCharts';
 import {
+  comparePeriods,
   currentMonthInTimezone,
+  currentYearMonth,
   formatPeriodLabel,
+  isPastYear,
   isPeriodBefore,
-  listEndedPeriods,
+  isSelectableMonth,
+  listMonthsInYear,
   previousPeriod,
+  toPeriod,
+  yearEndPeriod,
+  yearStartPeriod,
 } from '../lib/period';
 import { amountStringToCents, centsToAmountString } from '../lib/money';
 import {
@@ -46,9 +54,13 @@ import type {
   SummaryAnalytics,
   SummaryCategoryKey,
 } from '../types/analytics.types';
+import { getMonthClosureStatus } from '../services/monthClose.service';
+import type { MonthClosureStatus } from '../types/monthClose.types';
 import { useAuthStore } from '../store/useAuthStore';
+import { useCalendarContextStore } from '../store/useCalendarContextStore';
 import { runWithBlockingLoader } from '../store/useBlockingLoaderStore';
 import { useUnsavedChangesWarning } from '../store/useUnsavedChangesStore';
+import { MonthCloseBanner } from '../components/savings/MonthCloseBanner';
 
 type ViewMode = 'detail' | 'create' | 'edit';
 
@@ -58,10 +70,15 @@ export function Analytics() {
   const token = session?.access_token;
   const locale = i18n.resolvedLanguage ?? 'pl';
 
+  const selectedYear = useCalendarContextStore((state) => state.selectedYear);
+  const selectedMonth = useCalendarContextStore((state) => state.selectedMonth);
+  const setMonth = useCalendarContextStore((state) => state.setMonth);
+  const calendarTimezone = useCalendarContextStore((state) => state.timezone);
+  const calendarReady = useCalendarContextStore((state) => state.initialized);
+  const selectedPeriod = toPeriod(selectedYear, selectedMonth);
   const [timezone, setTimezone] = useState('Europe/Warsaw');
   const [currency, setCurrency] = useState('PLN');
   const [summaries, setSummaries] = useState<SummaryAnalytics[]>([]);
-  const [selectedPeriod, setSelectedPeriod] = useState('');
   const [selectedSummary, setSelectedSummary] =
     useState<SummaryAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,19 +104,23 @@ export function Analytics() {
     useState('');
   const [currentMonthChartSummary, setCurrentMonthChartSummary] =
     useState<SummaryAnalytics | null>(null);
-
-  const currentPeriod = useMemo(
-    () => currentMonthInTimezone(timezone),
-    [timezone],
+  const [monthClosure, setMonthClosure] = useState<MonthClosureStatus | null>(
+    null,
   );
+
+  const activeTimezone = calendarReady ? calendarTimezone : timezone;
+  const currentPeriod = useMemo(
+    () => currentMonthInTimezone(activeTimezone),
+    [activeTimezone],
+  );
+  const currentYear = currentYearMonth(activeTimezone).year;
+  const archiveYear = isPastYear(selectedYear, currentYear);
+  const chartFromPeriod = yearStartPeriod(selectedYear);
   const previousMonth = useMemo(
     () => previousPeriod(currentPeriod),
     [currentPeriod],
   );
-  const endedPeriods = useMemo(
-    () => listEndedPeriods(currentPeriod),
-    [currentPeriod],
-  );
+  const monthsInYear = useMemo(() => listMonthsInYear(), []);
   const isCurrentMonth =
     selectedPeriod !== '' && selectedPeriod === currentPeriod;
 
@@ -109,6 +130,7 @@ export function Analytics() {
   );
 
   const canCreateForPeriod =
+    !archiveYear &&
     selectedPeriod !== '' &&
     isPeriodBefore(selectedPeriod, currentPeriod) &&
     !selectedSummary;
@@ -162,18 +184,27 @@ export function Analytics() {
 
   /** Persisted ended-month rows plus the in-progress month for MoM bars. */
   const chartsSummaries = useMemo(() => {
-    if (!currentMonthChartSummary) return summaries;
+    if (
+      !currentMonthChartSummary ||
+      !currentMonthChartSummary.period.startsWith(`${selectedYear}-`)
+    ) {
+      return summaries;
+    }
     return [
       ...summaries.filter(
         (summary) => summary.period !== currentMonthChartSummary.period,
       ),
       currentMonthChartSummary,
     ];
-  }, [currentMonthChartSummary, summaries]);
+  }, [currentMonthChartSummary, selectedYear, summaries]);
 
-  const momThroughPeriod = currentMonthChartSummary
-    ? currentPeriod
-    : previousMonth;
+  const momThroughPeriod = archiveYear
+    ? yearEndPeriod(selectedYear)
+    : currentMonthChartSummary
+      ? currentPeriod
+      : comparePeriods(previousMonth, chartFromPeriod) < 0
+        ? currentPeriod
+        : previousMonth;
 
   const resetForm = useCallback(
     (summary: SummaryAnalytics | null) => {
@@ -218,12 +249,12 @@ export function Analytics() {
 
   const refreshSummaries = useCallback(async () => {
     if (!token) return;
-    const rows = await getMySummaries(token);
+    const rows = await getMySummaries(token, selectedYear);
     setSummaries(rows);
-  }, [token]);
+  }, [selectedYear, token]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !calendarReady) return;
 
     const controller = new AbortController();
 
@@ -231,10 +262,11 @@ export function Analytics() {
       setLoading(true);
       setError(null);
       try {
-        const [schedule, rows, dashboard] = await Promise.all([
+        const [schedule, rows, dashboard, closure] = await Promise.all([
           getSummarySchedule(token, controller.signal),
-          getMySummaries(token, controller.signal),
+          getMySummaries(token, selectedYear, controller.signal),
           getTemplateDashboard(token, controller.signal),
+          getMonthClosureStatus(token, controller.signal),
         ]);
         if (controller.signal.aborted) return;
 
@@ -242,10 +274,9 @@ export function Analytics() {
         setCurrency(schedule.currency);
         setSummaries(rows);
         setProfileSalaryCents(dashboard.salaryCents);
+        setMonthClosure(closure);
 
         const current = currentMonthInTimezone(schedule.timezone);
-        const defaultPeriod = previousPeriod(current);
-        setSelectedPeriod(defaultPeriod);
 
         // Prefetch current-month expenses so MoM includes the in-progress bar
         // even when the selector defaults to the previous month.
@@ -284,7 +315,7 @@ export function Analytics() {
 
     void bootstrap();
     return () => controller.abort();
-  }, [t, token]);
+  }, [calendarReady, selectedYear, t, token]);
 
   useEffect(() => {
     if (!token || !selectedPeriod || loading) return;
@@ -344,12 +375,12 @@ export function Analytics() {
     token,
   ]);
 
-  const handlePeriodChange = (period: string) => {
+  const handlePeriodChange = (month: number) => {
     setSuccess(null);
     setError(null);
     setViewMode('detail');
     setSelectedSummary(null);
-    setSelectedPeriod(period);
+    setMonth(month);
   };
 
   const handleCreateClick = () => {
@@ -371,7 +402,7 @@ export function Analytics() {
     event.preventDefault();
 
     void runWithBlockingLoader(async () => {
-      if (!token || !selectedPeriod || isCurrentMonth) return;
+      if (!token || !selectedPeriod || isCurrentMonth || archiveYear) return;
 
       setBusy(true);
       setError(null);
@@ -487,7 +518,7 @@ export function Analytics() {
     currentMonthSnapshot(categories, unassigned) !== currentMonthSavedSnapshot;
   useUnsavedChangesWarning(currentMonthDirty);
 
-  if (loading) {
+  if (loading || !calendarReady) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex items-center justify-center py-16">
@@ -505,6 +536,9 @@ export function Analytics() {
       <p className="mt-1 text-sm text-gray-600">{t('analytics.subtitle')}</p>
 
       <DashboardAlerts error={error} success={success} />
+      <div className="mt-6">
+        <ArchiveYearBanner />
+      </div>
 
       <div className="mt-6 space-y-6">
         <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -512,20 +546,30 @@ export function Analytics() {
             <CalendarDays className="h-4 w-4 text-gray-500" />
             {t('analytics.monthLabel')}
             <select
-              value={selectedPeriod}
-              onChange={(event) => handlePeriodChange(event.target.value)}
+              value={selectedMonth}
+              onChange={(event) =>
+                handlePeriodChange(Number(event.target.value))
+              }
               className="min-w-48 rounded-md border px-3 py-2 font-normal"
             >
-              <option value={currentPeriod}>
-                {t('analytics.currentMonthOption', {
-                  month: formatPeriodLabel(currentPeriod, locale),
-                })}
-              </option>
-              {endedPeriods.map((period) => (
-                <option key={period} value={period}>
-                  {formatPeriodLabel(period, locale)}
-                </option>
-              ))}
+              {monthsInYear.map((month) => {
+                const period = toPeriod(selectedYear, month);
+                const currentParts = currentYearMonth(activeTimezone);
+                const disabled = !isSelectableMonth(
+                  selectedYear,
+                  month,
+                  currentParts.year,
+                  currentParts.month,
+                );
+                const label = formatPeriodLabel(period, locale);
+                return (
+                  <option key={period} value={month} disabled={disabled}>
+                    {period === currentPeriod
+                      ? t('analytics.currentMonthOption', { month: label })
+                      : label}
+                  </option>
+                );
+              })}
             </select>
           </label>
         </section>
@@ -534,6 +578,7 @@ export function Analytics() {
           summaries={chartsSummaries}
           selectedSummary={chartSummary}
           selectedPeriod={selectedPeriod}
+          fromPeriod={chartFromPeriod}
           throughPeriod={momThroughPeriod}
           loadingMonth={loadingMonth}
           locale={locale}
@@ -590,39 +635,59 @@ export function Analytics() {
               )}
             </div>
 
-            <form onSubmit={handleSaveCurrentMonth}>
-              <ExpenseFormSaveBar
-                dirty={currentMonthDirty}
-                busy={busy || suggestBusy}
-                unsavedLabel={t('dashboard.unsavedFileChanges')}
-                savedLabel={t('dashboard.fileSaved')}
-                saveLabel={t('common.save')}
+            {token && monthClosure?.needsClosure ? (
+              <MonthCloseBanner
+                token={token}
+                status={monthClosure}
+                locale={locale}
+                onClosed={() => {
+                  void (async () => {
+                    const [closure, expenses, rows] = await Promise.all([
+                      getMonthClosureStatus(token),
+                      getCurrentMonthExpenses(token),
+                      getMySummaries(token, selectedYear),
+                    ]);
+                    setMonthClosure(closure);
+                    applyCurrentMonthExpenses(expenses);
+                    setSummaries(rows);
+                  })();
+                }}
               />
-              <CategoryExpenseForm
-                categories={categories}
-                unassigned={unassigned}
-                showUnassigned
-                autoTotalFromItems
-                busy={busy || suggestBusy}
-                suggestBusy={suggestBusy}
-                categoriesTitle={t('analytics.categoriesTitle')}
-                categoryLabel={categoryLabel}
-                categoryTotalLabel={t('analytics.categoryTotalLabel')}
-                lineItemsLabel={t('analytics.lineItemsLabel')}
-                itemNameLabel={t('analytics.itemNameLabel')}
-                itemAmountLabel={t('analytics.itemAmountLabel')}
-                addLineItemLabel={t('analytics.addLineItem')}
-                removeLineItemLabel={t('analytics.removeLineItem')}
-                unassignedTitle={t('dashboard.unassignedTitle')}
-                unassignedHint={t('dashboard.unassignedHint')}
-                moveToCategoryLabel={t('dashboard.moveToCategory')}
-                suggestCategoriesLabel={t('dashboard.suggestCategories')}
-                addUnassignedLabel={t('dashboard.addUnassigned')}
-                onCategoriesChange={setCategories}
-                onUnassignedChange={setUnassigned}
-                onSuggestCategories={handleSuggestCategories}
-              />
-            </form>
+            ) : (
+              <form onSubmit={handleSaveCurrentMonth}>
+                <ExpenseFormSaveBar
+                  dirty={currentMonthDirty}
+                  busy={busy || suggestBusy}
+                  unsavedLabel={t('dashboard.unsavedFileChanges')}
+                  savedLabel={t('dashboard.fileSaved')}
+                  saveLabel={t('common.save')}
+                />
+                <CategoryExpenseForm
+                  categories={categories}
+                  unassigned={unassigned}
+                  showUnassigned
+                  autoTotalFromItems
+                  busy={busy || suggestBusy}
+                  suggestBusy={suggestBusy}
+                  categoriesTitle={t('analytics.categoriesTitle')}
+                  categoryLabel={categoryLabel}
+                  categoryTotalLabel={t('analytics.categoryTotalLabel')}
+                  lineItemsLabel={t('analytics.lineItemsLabel')}
+                  itemNameLabel={t('analytics.itemNameLabel')}
+                  itemAmountLabel={t('analytics.itemAmountLabel')}
+                  addLineItemLabel={t('analytics.addLineItem')}
+                  removeLineItemLabel={t('analytics.removeLineItem')}
+                  unassignedTitle={t('dashboard.unassignedTitle')}
+                  unassignedHint={t('dashboard.unassignedHint')}
+                  moveToCategoryLabel={t('dashboard.moveToCategory')}
+                  suggestCategoriesLabel={t('dashboard.suggestCategories')}
+                  addUnassignedLabel={t('dashboard.addUnassigned')}
+                  onCategoriesChange={setCategories}
+                  onUnassignedChange={setUnassigned}
+                  onSuggestCategories={handleSuggestCategories}
+                />
+              </form>
+            )}
           </section>
         ) : selectedSummary && viewMode === 'detail' ? (
           <SummaryDetailPanel
@@ -639,8 +704,8 @@ export function Analytics() {
             categoriesTitle={t('analytics.categoriesTitle')}
             categoryLabel={categoryLabel}
             lineItemsLabel={t('analytics.lineItemsLabel')}
-            editLabel={t('analytics.editButton')}
-            onEdit={handleEditClick}
+            editLabel={archiveYear ? undefined : t('analytics.editButton')}
+            onEdit={archiveYear ? undefined : handleEditClick}
           />
         ) : selectedSummary && viewMode === 'edit' ? (
           <ManualSummaryForm
@@ -709,6 +774,17 @@ export function Analytics() {
             >
               {t('analytics.createButton')}
             </button>
+          </section>
+        ) : archiveYear ? (
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {t('calendarContext.historicalEmptyTitle')}
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">
+              {t('calendarContext.historicalEmptyMessage', {
+                month: formatPeriodLabel(selectedPeriod, locale),
+              })}
+            </p>
           </section>
         ) : null}
       </div>

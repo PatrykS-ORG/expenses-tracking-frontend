@@ -22,8 +22,8 @@ type SummaryDetailPanelProps = {
   categoriesTitle: string;
   categoryLabel: (key: SummaryCategoryKey) => string;
   lineItemsLabel: string;
-  editLabel: string;
-  onEdit: () => void;
+  editLabel?: string;
+  onEdit?: () => void;
 };
 
 export function SummaryDetailPanel({
@@ -68,14 +68,16 @@ export function SummaryDetailPanel({
               : sourceScheduledLabel}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onEdit}
-          className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          <Pencil className="h-4 w-4" />
-          {editLabel}
-        </button>
+        {onEdit && editLabel ? (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <Pencil className="h-4 w-4" />
+            {editLabel}
+          </button>
+        ) : null}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

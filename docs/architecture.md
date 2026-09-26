@@ -5,11 +5,13 @@
 Spendwell frontend is a React SPA (Vite) that:
 
 - authenticates users with Supabase Auth,
-- calls backend GraphQL for templates, settings, AI usage, file upload, receipt scanning, and monthly budget,
+- calls backend GraphQL for templates, settings, AI usage, file upload, receipt scanning, monthly budget, savings goals, analytics summaries, Suggest categories, and month close,
 - guides users through onboarding → upload → dashboard workflow,
 - provides a receipt scanner page for OCR-based expense entry,
-- exposes a budget planner (`/budget`) for a reusable monthly category plan,
+- exposes Analytics (`/analytics`) for the selected year's months, with live charts only for the actual current month,
+- exposes a budget planner (`/budget`) for a reusable monthly category plan (optional extra expense),
 - exposes long-term expenses (`/savings-goals`) for named savings events,
+- runs a **month-close wizard** when leftover cash from the previous month must be allocated before new-month writes,
 - exposes Settings (`/settings`) for account, summary schedule, and AI usage.
 
 ```mermaid
@@ -30,6 +32,8 @@ flowchart TB
   SupaLib --> SupaAuth
   Services -->|"Bearer access_token"| Backend
 ```
+
+Page concerns include Dashboard, Analytics, Receipt scanner, Budget, Savings goals, Settings, Onboarding, and the Month-close wizard (surfaced from Dashboard / Analytics / receipt scan when `needsClosure`).
 
 ## Routes and guards
 
@@ -58,11 +62,15 @@ Onboarding success navigates to `/?setup=upload` to highlight the upload step. D
 
 ## State management
 
-| Store                    | File                                  | Responsibility                                       |
-| ------------------------ | ------------------------------------- | ---------------------------------------------------- |
-| `useAuthStore`           | `src/store/useAuthStore.ts`           | session, user, bootstrapping, sign-out               |
-| `useOnboardingStore`     | `src/store/useOnboardingStore.ts`     | questionnaire state + template generation            |
-| `useBlockingLoaderStore` | `src/store/useBlockingLoaderStore.ts` | global blocking overlay for user-triggered mutations |
+| Store                     | File                                   | Responsibility                                       |
+| ------------------------- | -------------------------------------- | ---------------------------------------------------- |
+| `useAuthStore`            | `src/store/useAuthStore.ts`            | session, user, bootstrapping, sign-out               |
+| `useOnboardingStore`      | `src/store/useOnboardingStore.ts`      | questionnaire state + template generation            |
+| `useBlockingLoaderStore`  | `src/store/useBlockingLoaderStore.ts`  | global blocking overlay for user-triggered mutations |
+| `useUnsavedChangesStore`  | `src/store/useUnsavedChangesStore.ts`  | dirty-form / navigation guard for in-progress edits  |
+| `useCalendarContextStore` | `src/store/useCalendarContextStore.ts` | session year/month; resets on logout or reload       |
+
+`AppLayout` loads the summary timezone once per session and renders the header year control (`CalendarYearSelect`). The selection is not persisted. Past years make financial screens read-only; `/savings-goals` does not read the store.
 
 Page-level local state is used in `Dashboard` for:
 
@@ -73,7 +81,15 @@ Page-level local state is used in `Dashboard` for:
 
 ## Backend communication pattern
 
-`src/services/onboarding.service.ts` is the API gateway for dashboard/onboarding flows. `src/services/budget.service.ts` covers the reusable monthly category budget (`myMonthlyBudget` / `saveMonthlyBudget`). `src/services/savingsGoals.service.ts` covers long-term savings events (`mySavingsGoals` and event/item/contribution mutations).
+API gateway services under `src/services/`:
+
+| Service                | File                      | Covers                                                                                                                     |
+| ---------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Onboarding / dashboard | `onboarding.service.ts`   | templates, data source, upload, current-month expenses, Suggest, schedule, test email, salary, send-now, AI usage, account |
+| Analytics              | `analytics.service.ts`    | `mySummaries`, `mySummary`, `createManualSummary`, `updateManualSummary`, `summaryCategoryKeys`                            |
+| Budget                 | `budget.service.ts`       | `myMonthlyBudget` / `saveMonthlyBudget` (incl. optional extra expense)                                                     |
+| Savings goals          | `savingsGoals.service.ts` | `mySavingsGoals` and event / item / contribution mutations                                                                 |
+| Month close            | `monthClose.service.ts`   | `monthClosureStatus` / `closeMonth`; Vite dev `?testNow=ISO` → `X-Test-Now`                                                |
 
 ### GraphQL operations
 
@@ -88,20 +104,24 @@ Page-level local state is used in `Dashboard` for:
 - `sendTestEmail`
 - `mySummarySchedule`
 - `updateSummarySchedule`
+- `updateSalary`
 - `approveReceiptExpenses`
 - `uploadExpenseFile`
 - `currentMonthExpenses` / `saveCurrentMonthExpenses` / `suggestExpenseCategories`
 - `overwriteCurrentExpenseFile`
 - `currentExpenseFile`
-- `overwriteCurrentExpenseFile`
 - `scanReceipt`
 - `sendSummaryNow`
+- `mySummaries` / `mySummary` / `summaryCategoryKeys`
+- `createManualSummary` / `updateManualSummary`
 - `myAiUsageSummary`
 - `myAiUsageLog`
 - `myMonthlyBudget` / `saveMonthlyBudget`
 - `mySavingsGoals` / `createSavingsGoalEvent` / `updateSavingsGoalEvent` / `deleteSavingsGoalEvent`
 - `createSavingsGoalItem` / `updateSavingsGoalItem` / `deleteSavingsGoalItem`
 - `addSavingsGoalContribution` / `deleteSavingsGoalContribution`
+- `monthClosureStatus` / `closeMonth`
+- `deleteMyAccount`
 
 ### URL strategy
 
@@ -123,7 +143,8 @@ All backend calls go through this endpoint. File uploads use base64-encoded muta
   - Nextcloud path,
 - automatic summary schedule settings (day, hour, timezone, enable/disable),
 - test-email trigger,
-- link to receipt scanner (`/receipt-scan`).
+- link to receipt scanner (`/receipt-scan`),
+- month-close banner / wizard entry when `needsClosure` (see below).
 
 `myTemplateSettings` response is mapped to:
 
@@ -135,8 +156,32 @@ All backend calls go through this endpoint. File uploads use base64-encoded muta
 
 `/analytics` shows ended-month summaries plus an **in-progress current month**:
 
-- Ended months: view / create / edit `SummaryAnalytics` via manual summary form.
-- Current month: loads `currentMonthExpenses`, editable category form (same as Dashboard), live charts from an in-memory snapshot (no DB row until the month ends).
+- Ended months: view / create / edit `SummaryAnalytics` via manual summary form (`analytics.service`).
+- Current month: loads `currentMonthExpenses`, editable category form (same as Dashboard), live charts from an in-memory snapshot (no DB row until the month ends, except month close may insert a `MANUAL` snapshot for the **previous** period).
+
+### Investments / three-bucket charts
+
+Product: [monthly-summaries.md](../../expenses-tracking-docs/features/monthly-summaries.md), [ADR 0002](../../expenses-tracking-docs/decisions/0002-investments-as-savings-bucket.md).
+
+Charts treat the canonical `Investments` category as investing/saving, not consumption:
+
+- **Spending vs investing vs free savings** donut — `consumptionSpentCents` / `investedCents` / `savingsCents` (YTD through chart through-period; live current month included from expense-file preview).
+- **Monthly savings** column chart — free savings stacked with invested per month.
+- **Month-over-month** — income vs consumption spending stacked with invested.
+
+`totalExpensesCents` remains total outflow; invested is derived from categories.
+
+## Month-close UX flow
+
+Product: [month-close.md](../../expenses-tracking-docs/features/month-close.md).
+
+When `monthClosureStatus.needsClosure` is true (previous period leftover **> 0** and not yet closed):
+
+1. Dashboard, Analytics (current-month editor), and receipt approval show a **close banner** instead of (or blocking) new-month expense writes.
+2. User opens `CloseMonthWizard`: pick event → sub-goal → amounts until **left to allocate** reaches zero (100% of leftover).
+3. Confirm calls `closeMonth`. Contributions appear on `/savings-goals`, the expense file is cleared, and new-month editing unlocks.
+
+In Vite dev, `?testNow=ISO` is forwarded as `X-Test-Now` so the backend can simulate the 1st of the next month.
 
 ## Receipt scanner flow
 
@@ -147,6 +192,14 @@ All backend calls go through this endpoint. File uploads use base64-encoded muta
 3. Extracted text is shown in an editable textarea; user can correct OCR/AI output.
 4. `approveReceiptExpenses()` sends the edited text via GraphQL mutation.
 5. On success, navigates to `/` (expenses appended to the uploaded file on the backend).
+
+When month close is required, approval is blocked until the previous month is closed.
+
+## Budget planner flow
+
+`/budget` (`BudgetPlanner`) edits the reusable monthly category plan via `budget.service` (`myMonthlyBudget` / `saveMonthlyBudget`).
+
+Optionally the user defines **one extra expense** (named one-off) funded by cut percentages on categories with planned amounts. Planned-allocation and budget-vs-actual charts use **post-cut** amounts and include an extra-expense slice when active. Saving with no extra expense clears any stored one. Product: [budget-planning.md](../../expenses-tracking-docs/features/budget-planning.md).
 
 ## Settings flow
 
